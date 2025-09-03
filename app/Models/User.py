@@ -6,8 +6,9 @@ from app.Models.Role import Role
 
 class User(Base):
     __tablename__ = 'users';
-
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    
+    # MySQL ga punya tipe native UUID, jadi lebih aman disimpan sebagai VARCHAR(36)
+    id = Column(String, primary_key=True, index=True)
     nip = Column(String)
     nik = Column(String)
     name = Column(String)

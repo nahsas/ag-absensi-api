@@ -84,7 +84,8 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     response_model=UpdatePasswordResponse
 )
 def updatePassword(data: user.NewPasswordUser, db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
-    user_id = user_id.encode('utf-8');
+    # user_id = user_id.encode('utf-8');
+    # hapus endcode karena user_id udah bisa string biasa ga perlu lagi ubah ke bytes
     
     res = db.query(User).where(User.id == user_id).first()
     if not res:
