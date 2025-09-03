@@ -67,7 +67,7 @@ jam = {
     "masuk": '07:00',
     "istirahat": '12:00',
     "kembali": '13:00',
-    "maximal_pulang": '17:00'
+    "maximal_pulang": '23:59'
 }
 
 jam_masuk = datetime.fromisoformat(f"{datetime.now().date()}T{jam['masuk']}:00")
@@ -85,10 +85,8 @@ jam_pulang_time = time.fromisoformat(jam['maximal_pulang'])
     summary="Mendapatkan status absensi harian",
     description="Endpoint untuk mendapatkan status absensi pengguna pada hari ini, termasuk total poin yang telah dikumpulkan."
 )
-def get_status(db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
+def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
         today = datetime.now().date()
-
-        user_id = user_id.encode('utf-8');
 
         user = db.query(User).where(User.id == user_id).first()
         
@@ -221,7 +219,7 @@ def get_absen_image(filename: str):
 
 @router.post(
     '/set',
-    response_model=SetAbsenResponse,
+    # response_model=SetAbsenResponse,
     summary="Melakukan absensi",
     description="Endpoint untuk melakukan absensi (masuk, istirahat, kembali, atau pulang) sesuai dengan waktu saat ini. Bukti foto dapat diunggah."
 )
@@ -231,10 +229,7 @@ async def absen_masuk(
     db: Session = Depends(get_db), 
     user_id: str = Depends(get_auth_user)
 ):
-    user_id = user_id.encode('utf-8');
-
-    if input_time is None:
-        input_time = datetime.now()
+    input_time = datetime.now()
 
     user = db.query(User).options(joinedload(User.role)).get(user_id)
     if not user or not user.role:
@@ -248,7 +243,7 @@ async def absen_masuk(
             jam_absen_rule = rule
             break
             
-    if not jam_absen_rule:
+    if not jam_absen_rule: # Periksa ID, bukan objek        
         next_absen_time = None
         for rule in daftar_jam:
             if input_time.time() < rule.jam:
@@ -259,8 +254,8 @@ async def absen_masuk(
         if next_absen_time:
             detail_msg += f" Absen berikutnya: {next_absen_time.strftime('%H:%M')}"
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=detail_msg)
-        
-    already_absent = db.query(Absen).filter(
+
+    already_absent = db.query(Absen).filter(        
         Absen.user_id == user_id,
         Absen.keterangan == 'hadir',
         Absen.tanggal_absen >= datetime.combine(input_time.date(), jam_absen_rule.jam),

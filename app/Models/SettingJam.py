@@ -5,7 +5,7 @@ from app.Core.Database import Base
 class SettingJam(Base):
     __tablename__ = 'setting_jams'
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(String, primary_key=True, default=str(uuid.uuid4()))
     nama_jam = Column(String)
     jam = Column(Time)
     batas_jam = Column(Time)

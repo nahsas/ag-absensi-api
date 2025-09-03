@@ -23,12 +23,12 @@ class izin_input(BaseModel):
 async def add_izin(
     data:izin_input,
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_auth_user)
-):    
-    user_id = user_id.encode('utf-8');
-
+    user_id_str: str = Depends(get_auth_user)
+):
+    # Tidak perlu meng-encode user_id, biarkan tetap string
+    # Anggap user_id dari token adalah string UUID yang valid.
+    
     try:
-        # Pengecekan input_time (jika diperlukan)
         input_time = datetime.now() if data.input is None else datetime.fromisoformat(data.input)
     except ValueError:
         raise HTTPException(
@@ -37,15 +37,17 @@ async def add_izin(
         )
     
     # Dapatkan user lengkap dengan relasinya
-    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
+    # Pastikan perbandingan menggunakan string atau UUID jika model User.id adalah UUID
+    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id_str).first()
     if not user or not user.role:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User atau role tidak ditemukan.")
 
     # Cek apakah user sudah memiliki status izin yang belum selesai
+    # Perbandingan Izin.user_id dengan user.id, keduanya harus konsisten
     existing_izin = db.query(Izin).filter(
-        Izin.user_id == user.id,
+        Izin.user_id == user_id_str, # Menggunakan string user_id_str
         Izin.jam_kembali == None,
-        Izin.approved == False # Hanya cek izin yang belum disetujui atau ditolak
+        Izin.approved == None # Menggunakan None untuk izin yang belum disetujui atau ditolak
     ).first()
 
     if existing_izin:
@@ -54,29 +56,23 @@ async def add_izin(
             detail=f"Anda sudah memiliki pengajuan izin yang sedang diproses. Silakan tunggu hingga disetujui."
         )
 
-    # Simpan file bukti ke storage
-    # Implementasi ini bergantung pada kebutuhan Anda (contoh sederhana)
-    # file_path = f"path/to/your/storage/bukti_{user.id}_{datetime.now().isoformat()}.jpg"
-    # with open(file_path, "wb") as f:
-    #     f.write(bukti.file.read())
-
     # Buat entri baru di tabel Absen
     new_absen = Absen(
-        id=uuid.uuid4(),
-        user_id=user.id,
+        id=str(uuid.uuid4()), # Pastikan ID dibuat sebagai string
+        user_id=user_id_str, # Menggunakan string user_id_str
         keterangan="izin",
-        point=0, # point akan dihitung saat kembali
+        point=0,
         tanggal_absen=input_time,
         show=True
     )
     db.add(new_absen)
-    db.flush() # Ambil ID dari absen yang baru dibuat
+    db.flush()
 
     # Buat entri baru di tabel Izins
     new_izin = Izin(
-        id=uuid.uuid4(),
-        user_id=user.id,
-        absen_id=new_absen.id,
+        id=str(uuid.uuid4()), # Pastikan ID dibuat sebagai string
+        user_id=user_id_str, # Menggunakan string user_id_str
+        absen_id=new_absen.id, # new_absen.id sudah berupa string
         alasan=data.alasan,
         jam_kembali=None,
         bukti_kembali=None,
@@ -91,7 +87,6 @@ async def add_izin(
         "message": "Pembuatan izin berhasil! Admin akan segera memprosesnya."
     }
 
-
 UPLOAD_DIR = "uploads/absen_bukti"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -99,14 +94,14 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def back_to_office(
     bukti_kembali: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_auth_user)
+    user_id_str: str = Depends(get_auth_user)
 ):
-    user_id = user_id.encode('utf-8');
+    # Tidak perlu meng-encode user_id_str
     
     # Cari izin yang sedang berlangsung untuk user ini
     izin_active = db.query(Izin).filter(
-        Izin.user_id == user_id,
-        Izin.jam_kembali.is_(None)
+        Izin.user_id == user_id_str,
+        Izin.jam_kembali == None
     ).first()
 
     if not izin_active:
@@ -118,7 +113,7 @@ async def back_to_office(
     bukti_url = None
     if bukti_kembali and bukti_kembali.filename:
         ext = os.path.splitext(bukti_kembali.filename)[1]
-        filename = f"{uuid.uuid4().hex}{ext}"
+        filename = f"{uuid.uuid4()}{ext}"
         file_path = os.path.join(UPLOAD_DIR, filename)
         with open(file_path, "wb") as f:
             f.write(await bukti_kembali.read())
@@ -133,8 +128,7 @@ async def back_to_office(
     if absen_izin:
         durasi_izin = izin_active.jam_kembali - absen_izin.tanggal_absen
         izin_active.keluar_selama = durasi_izin.seconds // 60 # dalam menit
-
-
+    
     db.commit()
 
     return {

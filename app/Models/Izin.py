@@ -10,8 +10,8 @@ Base = declarative_base()
 class Absen(Base):
     __tablename__ = 'absens'
 
-    id = Column(UUID(as_uuid=True),primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    id = Column(String,primary_key=True, default=str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)
     keterangan = Column(String, nullable=False)
     bukti = Column(String, nullable=True)
     point = Column(Integer, nullable=False)
@@ -21,23 +21,23 @@ class Absen(Base):
 class User(Base):
     __tablename__ = 'users';
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(String, primary_key=True , default=str(uuid.uuid4()))
     nip = Column(String)
     nik = Column(String)
     name = Column(String)
     alamat = Column(String)
     no_hp = Column(String)
     password = Column(String)
-    roles_id = Column(UUID(as_uuid=True), ForeignKey('roles.id'))
+    roles_id = Column(String, ForeignKey('roles.id'))
     isFirstLogin = Column(Boolean)
 
 
 class Izin(Base):
     __tablename__ = 'izins'
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))  # Asumsi ada tabel 'users'
-    absen_id = Column(UUID(as_uuid=True), ForeignKey('absens.id')) # Asumsi ada tabel 'absens'
+    id = Column(String, primary_key=True, default=str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey('users.id'))  # Asumsi ada tabel 'users'
+    absen_id = Column(String, ForeignKey('absens.id')) # Asumsi ada tabel 'absens'
     bukti_kembali = Column(String)
     alasan = Column(String)
     jam_kembali = Column(DateTime)
