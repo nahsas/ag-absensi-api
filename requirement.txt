@@ -28,6 +28,7 @@ jwt==1.4.0
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
+mysql-connector-python==9.4.0
 orjson==3.11.1
 passlib==1.7.4
 psycopg2==2.9.10
