@@ -8,7 +8,7 @@ class User(Base):
     __tablename__ = 'users';
     
     # MySQL ga punya tipe native UUID, jadi lebih aman disimpan sebagai VARCHAR(36)
-    id = Column(String, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=str(uuid.uuid4()))
     nip = Column(String)
     nik = Column(String)
     name = Column(String)

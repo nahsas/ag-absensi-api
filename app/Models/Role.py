@@ -5,5 +5,5 @@ from app.Core.Database import Base
 class Role(Base):
     __tablename__ = 'roles'
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(String, primary_key=True, default=str(uuid.uuid4()))
     name = Column(String)
