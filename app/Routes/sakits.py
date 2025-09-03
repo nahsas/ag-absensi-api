@@ -24,6 +24,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post('/add_sakit')
 async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.now(),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
+    user_id = user_id.encode('utf-8');
+    
     try:
         input_time = datetime.now() if input_time == None else input_time,
         user = db.query(User).where(User.id == user_id).first()

@@ -36,7 +36,7 @@ router = APIRouter()
     '/auth/login',
     summary="Login user",
     description="Endpoint untuk user login menggunakan NIP dan password. Jika berhasil, akan mengembalikan token otentikasi.",
-    response_model=LoginResponse,
+    # response_model=LoginResponse,
 )
 def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     res = db.query(User).where(User.nip == data.nip).first()
@@ -84,6 +84,8 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     response_model=UpdatePasswordResponse
 )
 def updatePassword(data: user.NewPasswordUser, db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
+    user_id = user_id.encode('utf-8');
+    
     res = db.query(User).where(User.id == user_id).first()
     if not res:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Akun tidak ada")

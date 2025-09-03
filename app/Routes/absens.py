@@ -81,43 +81,47 @@ jam_pulang_time = time.fromisoformat(jam['maximal_pulang'])
 
 @router.get(
     '/status',
-    response_model=GetStatusResponse,
+    # response_model=GetStatusResponse,
     summary="Mendapatkan status absensi harian",
     description="Endpoint untuk mendapatkan status absensi pengguna pada hari ini, termasuk total poin yang telah dikumpulkan."
 )
 def get_status(db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
-    today = datetime.now().date()
-    
-    total_point = db.query(func.sum(Absen.point)).filter(
-        Absen.user_id == user_id,
-    ).scalar() or 0
-    
-    result = {
-        "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['masuk']}", Absen.tanggal_absen < f"{today} {jam['istirahat']}").where(Absen.keterangan=='hadir').first(),
-        "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['istirahat']}", Absen.tanggal_absen < f"{today} {jam['kembali']}").where(Absen.keterangan=='hadir').first(),
-        "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['kembali']}", Absen.tanggal_absen < f"{today} {jam['maximal_pulang']}").where(Absen.keterangan=='hadir').first(),
-        "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['maximal_pulang']}").where(Absen.keterangan=='hadir').first()
-    }
+        today = datetime.now().date()
 
-    isIzin = False
-    izin_active = db.query(Izin).filter(Izin.user_id == user_id, Izin.jam_kembali == None).first()
-    if izin_active :
-        isIzin = True
-    
-    isDinasLuar = False
-    # dinas_luar_active = db.query(DinasLuar)
-    user = db.query(User).where(User.id == user_id).first()
+        user_id = user_id.encode('utf-8');
 
-    if not user:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User not found")
+        user = db.query(User).where(User.id == user_id).first()
+        
+        total_point = db.query(func.sum(Absen.point)).filter(
+            Absen.user_id == user.id,
+        ).scalar() or 0
+        
+        result = {
+            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['masuk']}", Absen.tanggal_absen < f"{today} {jam['istirahat']}").where(Absen.keterangan=='hadir').first(),
+            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['istirahat']}", Absen.tanggal_absen < f"{today} {jam['kembali']}").where(Absen.keterangan=='hadir').first(),
+            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['kembali']}", Absen.tanggal_absen < f"{today} {jam['maximal_pulang']}").where(Absen.keterangan=='hadir').first(),
+            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['maximal_pulang']}").where(Absen.keterangan=='hadir').first()
+        }
 
-    return {
-        "posisi_perusahaan": user.position,
-        "point_total": total_point,
-        "isDinasLuar": isDinasLuar,
-        "isIzin": isIzin,
-        "data": result
-    }
+        isIzin = False
+        izin_active = db.query(Izin).filter(Izin.user_id == user_id, Izin.jam_kembali == None).first()
+        if izin_active :
+            isIzin = True
+        
+        isDinasLuar = False
+        # dinas_luar_active = db.query(DinasLuar)
+        user = db.query(User).where(User.id == user_id).first()
+
+        if not user:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User not found")
+
+        return {
+            "posisi_perusahaan": user.position,
+            "point_total": total_point,
+            "isDinasLuar": isDinasLuar,
+            "isIzin": isIzin,
+            "data": result
+        }
 
 @router.get(
     '/get-data',
@@ -133,6 +137,9 @@ def get_absens(
     db: Session = Depends(get_db), 
     auth_user: str = Depends(get_auth_user)
 ):
+    auth_user = auth_user.encode('utf-8');
+
+
     if page < 1 or limit < 1:
         raise HTTPException(status_code=400, detail="Page and limit must be positive integers.")
 
@@ -224,6 +231,8 @@ async def absen_masuk(
     db: Session = Depends(get_db), 
     user_id: str = Depends(get_auth_user)
 ):
+    user_id = user_id.encode('utf-8');
+
     if input_time is None:
         input_time = datetime.now()
 

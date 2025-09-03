@@ -24,7 +24,9 @@ async def add_izin(
     data:izin_input,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_auth_user)
-):
+):    
+    user_id = user_id.encode('utf-8');
+
     try:
         # Pengecekan input_time (jika diperlukan)
         input_time = datetime.now() if data.input is None else datetime.fromisoformat(data.input)
@@ -99,6 +101,8 @@ async def back_to_office(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_auth_user)
 ):
+    user_id = user_id.encode('utf-8');
+    
     # Cari izin yang sedang berlangsung untuk user ini
     izin_active = db.query(Izin).filter(
         Izin.user_id == user_id,
