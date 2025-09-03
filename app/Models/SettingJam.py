@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy import UUID, Column, String, Time
 from app.Core.Database import Base
 
