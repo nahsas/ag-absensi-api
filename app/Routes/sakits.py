@@ -24,15 +24,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post('/add_sakit')
 async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.now(),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
-    user_id = user_id.encode('utf-8');
-    
     try:
         input_time = datetime.now() if input_time == None else input_time,
         user = db.query(User).where(User.id == user_id).first()
         if not user:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User tidak ditemukan")
         new_absen = Absen(
-            id=uuid.uuid4(),
+            id=str(uuid.uuid4()),
             user_id=user.id,
             keterangan="sakit",
             point=0, # point akan dihitung saat kembali
@@ -41,7 +39,7 @@ async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.
         )
         db.add(new_absen)
         db.flush()
-
+        
         bukti_url = None
         if bukti_kembali and bukti_kembali.filename:
             ext = os.path.splitext(bukti_kembali.filename)[1]
@@ -50,9 +48,8 @@ async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.
             with open(file_path, "wb") as f:
                 f.write(await bukti_kembali.read())
             bukti_url = f"/absen/absen-image/{filename}"
-
         new_sakit = Sakit(
-            id = uuid.uuid4(),
+            id = str(uuid.uuid4()),
             user_id = user.id,
             absen_id = new_absen.id,
             bukti_sakit = bukti_url,
