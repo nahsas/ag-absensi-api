@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  fastapi_app:
+    container_name: ag-fast-api
+    image: rel2407/ag-absen-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - KEY=VALUE  # Opsional: Atur variabel lingkungan di sini
+    restart: unless-stopped
