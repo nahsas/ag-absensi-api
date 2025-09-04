@@ -1,15 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
 from datetime import datetime
 import uuid
 from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey, Integer, String

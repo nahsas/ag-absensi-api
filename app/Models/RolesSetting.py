@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy import UUID, Column, ForeignKey, Integer, String
 from app.Core.Database import Base
 from sqlalchemy.orm import relationship
