@@ -24,8 +24,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post('/add_sakit')
 async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.now(),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
-    try:
-        input_time = datetime.now() if input_time == None else input_time,
+    # try:
+        input_time = datetime.now() if input_time == None else input_time
         user = db.query(User).where(User.id == user_id).first()
         if not user:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User tidak ditemukan")
@@ -61,5 +61,5 @@ async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.
         db.add(new_sakit)
         db.commit()
         return {"message":"Bukti sakit sudah diajukan"}
-    except Exception:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,detail=f"Gagal mengajukan bukti sakit")
+    # except Exception:
+    #     raise HTTPException(status.HTTP_400_BAD_REQUEST,detail=f"Gagal mengajukan bukti sakit")
