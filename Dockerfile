@@ -10,7 +10,7 @@ COPY ./requirements.txt /app/requirements.txt
 
 # Menginstal semua dependensi dari requirements.txt. Opsi "--no-cache-dir"
 # akan mengurangi ukuran image.
-RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+RUN pip install -r /app/requirements.txt
 
 # Menyalin seluruh kode proyekmu ke dalam direktori kerja container.
 COPY . /app
