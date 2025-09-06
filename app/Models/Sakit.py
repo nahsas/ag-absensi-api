@@ -1,4 +1,5 @@
 from datetime import datetime
+import pytz
 from sqlalchemy.orm import relationship
 import uuid
 from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey, Integer, String
@@ -10,7 +11,7 @@ class Sakit(Base):
     user_id = Column(String, ForeignKey('users.id'), nullable=False)
     absen_id = Column(String, ForeignKey('absens.id'), nullable=False)
     bukti_sakit = Column(String, nullable=True)
-    tanggal = Column(DateTime, nullable=False, default=datetime.now())
+    tanggal = Column(DateTime, nullable=False, default=datetime.now(pytz.timezone('Asia/Jakarta')))
     approved = Column(Boolean, default=None, nullable=True)
     alasan = Column(String, default=None, nullable=True)
 

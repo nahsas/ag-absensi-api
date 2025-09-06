@@ -2,6 +2,7 @@ from typing import Optional, Union
 from fastapi import Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
+import pytz
 from sqlalchemy import Date, and_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import Session
@@ -70,10 +71,10 @@ jam = {
     "maximal_pulang": '23:59'
 }
 
-jam_masuk = datetime.fromisoformat(f"{datetime.now().date()}T{jam['masuk']}:00")
-jam_istirahat = datetime.fromisoformat(f"{datetime.now().date()}T{jam['istirahat']}:00")
-jam_kembali = datetime.fromisoformat(f"{datetime.now().date()}T{jam['kembali']}:00")
-jam_pulang = datetime.fromisoformat(f"{datetime.now().date()}T{jam['maximal_pulang']}:00")
+jam_masuk = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['masuk']}:00")
+jam_istirahat = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['istirahat']}:00")
+jam_kembali = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['kembali']}:00")
+jam_pulang = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['maximal_pulang']}:00")
 jam_masuk_time = time.fromisoformat(jam['masuk'])
 jam_istirahat_time = time.fromisoformat(jam['istirahat'])
 jam_kembali_time = time.fromisoformat(jam['kembali'])
@@ -86,14 +87,14 @@ jam_pulang_time = time.fromisoformat(jam['maximal_pulang'])
     description="Endpoint untuk mendapatkan status absensi pengguna pada hari ini, termasuk total poin yang telah dikumpulkan."
 )
 def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
-        today = datetime.now().date()
+        today = datetime.now(pytz.timezone('Asia/Jakarta')).date()
 
         user = db.query(User).where(User.id == user_id).first()
-        
+
         total_point = db.query(func.sum(Absen.point)).filter(
             Absen.user_id == user.id,
         ).scalar() or 0
-        
+
         result = {
             "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['masuk']}", Absen.tanggal_absen < f"{today} {jam['istirahat']}").where(Absen.keterangan=='hadir').first(),
             "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['istirahat']}", Absen.tanggal_absen < f"{today} {jam['kembali']}").where(Absen.keterangan=='hadir').first(),
@@ -229,7 +230,7 @@ async def absen_masuk(
     db: Session = Depends(get_db), 
     user_id: str = Depends(get_auth_user)
 ):
-    input_time = datetime.now()
+    input_time = datetime.now(pytz.timezone('Asia/Jakarta'))
 
     user = db.query(User).options(joinedload(User.role)).get(user_id)
     if not user or not user.role:

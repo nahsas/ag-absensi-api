@@ -1,7 +1,13 @@
+from datetime import datetime
+import pytz
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.Routes import absens, izins, sakits, users, cores
+
+print(datetime.now(pytz.timezone('Asia/Jakarta')))
 
 app = FastAPI()
 
