@@ -9,6 +9,7 @@ from fastapi.security import HTTPBearer
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from jwt import exceptions
+import pytz
 from sqlalchemy.orm import Session
 
 from app.Models.Absen import Absen
@@ -37,10 +38,10 @@ def create_access_token(data: dict, expires_delta: Optional[dt.timedelta] = None
     
     # Menentukan waktu kadaluwarsa token
     if expires_delta:
-        expire = dt.datetime.now(dt.timezone.utc) + expires_delta
+        expire = dt.datetime.now(pytz.timezone('Asia/Jakarta')) + expires_delta
     else:
         # Default kadaluwarsa 15 menit
-        expire = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=15)
+        expire = dt.datetime.now(pytz.timezone('Asia/Jakarta')) + dt.timedelta(minutes=15)
         
     to_encode.update({"exp": expire})
     

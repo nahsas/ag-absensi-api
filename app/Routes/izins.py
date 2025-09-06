@@ -4,6 +4,7 @@ from typing import Optional, Union
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from pydantic import BaseModel
+import pytz
 from sqlalchemy.orm import Session, joinedload
 from app.Core.Database import get_db
 from app.Core.Essential import get_auth_user
@@ -29,7 +30,7 @@ async def add_izin(
     # Anggap user_id dari token adalah string UUID yang valid.
     
     try:
-        input_time = datetime.now() if data.input is None else datetime.fromisoformat(data.input)
+        input_time = datetime.now(pytz.timezone('Asia/Jakarta')) if data.input is None else datetime.fromisoformat(data.input)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -120,7 +121,7 @@ async def back_to_office(
         bukti_url = f"/absen/absen-image/{filename}"
     
     # Update data izin dengan data kembali
-    izin_active.jam_kembali = datetime.now()
+    izin_active.jam_kembali = datetime.now(pytz.timezone('Asia/Jakarta'))
     izin_active.bukti_kembali = bukti_url
     
     # Hitung durasi izin

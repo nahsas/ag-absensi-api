@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+import pytz
 from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey, Integer, String
 from app.Core.Database import Base
 from sqlalchemy.orm import relationship
@@ -12,7 +13,7 @@ class Absen(Base):
     keterangan = Column(String, nullable=False)
     bukti = Column(String, nullable=True)
     point = Column(Integer, nullable=False)
-    tanggal_absen = Column(DateTime, nullable=False, default=datetime.now())
+    tanggal_absen = Column(DateTime, nullable=False, default=datetime.now(pytz.timezone('Asia/Jakarta')))
     show = Column(Boolean, default=True, nullable=False)
 
     user = relationship('User', uselist=False)

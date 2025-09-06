@@ -4,6 +4,7 @@ import uuid
 from fastapi import Depends, File, HTTPException, UploadFile, status
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
+import pytz
 from sqlalchemy import DateTime
 from app.Core.Essential import get_auth_user
 from app.Core.Database import get_db
@@ -17,15 +18,15 @@ from app.Models.User import User
 router = APIRouter()
 
 class payload(BaseModel):
-    input_time:Optional[str] = f"{datetime.now().date()} {datetime.now().time().hour}:{datetime.now().time().minute}:{datetime.now().time().second}"
+    input_time:Optional[str] = f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()} {datetime.now(pytz.timezone('Asia/Jakarta')).time().hour}:{datetime.now(pytz.timezone('Asia/Jakarta')).time().minute}:{datetime.now(pytz.timezone('Asia/Jakarta')).time().second}"
 
 UPLOAD_DIR = "uploads/absen_bukti"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post('/add_sakit')
-async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.now(),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
+async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.now(pytz.timezone('Asia/Jakarta')),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
     # try:
-        input_time = datetime.now() if input_time == None else input_time
+        input_time = datetime.now(pytz.timezone('Asia/Jakarta')) if input_time == None else input_time
         user = db.query(User).where(User.id == user_id).first()
         if not user:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User tidak ditemukan")

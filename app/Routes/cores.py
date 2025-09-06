@@ -40,7 +40,7 @@ def get_distance(
     batas_jarak: int = maximal_jarak_login_m, 
     db: Session = Depends(get_db)
 ):
-    coords = {f"lat":-2.671232, "lon":107.648469}
+    coords = {f"lat":-2.7405128, "lon":107.6496313}
 
     jarak = haversine(coords['lat'], coords['lon'], lat, lon)
 
