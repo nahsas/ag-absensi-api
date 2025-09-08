@@ -98,18 +98,18 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pastikan 'Jam masuk','Istirahat','Masuk kembali','Pulang' sudah di set di database")
 
         result = {
-            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), jam_masuk.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), jam_masuk.batas_jam)}").where(Absen.keterangan=='hadir').first(),
-            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), istirahat.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), istirahat.batas_jam)}").where(Absen.keterangan=='hadir').first(),
-            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), kembali.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), kembali.batas_jam)}").where(Absen.keterangan=='hadir').first(),
-            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), pulang.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), pulang.batas_jam)}").where(Absen.keterangan=='hadir').first()
+            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, jam_masuk.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, jam_masuk.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, istirahat.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, istirahat.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, kembali.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, kembali.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, pulang.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, pulang.batas_jam)}").where(Absen.keterangan=='hadir').first()
         }
 
         izin_active = db.query(Izin).filter(Izin.user_id == user_id, Izin.jam_kembali == None).first()
         if izin_active :
             isIzin = True
         
-        dinas_luar = db.query(Absen).where(datetime.combine(datetime.now(), time.fromisoformat("00:00:00")) < Absen.tanggal_absen < datetime.combine(datetime.now(), time.fromisoformat("23:59:59"))).first()
-        if dinas_luar:
+        dinas_luar = db.query(Absen).where(datetime.combine(today, time.fromisoformat("00:00:00")) < Absen.tanggal_absen, Absen.tanggal_absen < datetime.combine(today, time.fromisoformat("23:59:59"))).first()
+        if dinas_luar :
             isDinasLuar = True
 
         return {
