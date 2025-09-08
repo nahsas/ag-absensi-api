@@ -77,9 +77,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
     description="Endpoint untuk mendapatkan status absensi pengguna pada hari ini, termasuk total poin yang telah dikumpulkan."
 )
 def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
+        isIzin = False
+        isDinasLuar = False
         today = datetime.now(pytz.timezone('Asia/Jakarta')).date()
-
         user = db.query(User).where(User.id == user_id).first()
+
+        if not user:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User not found")
 
         total_point = db.query(func.sum(Absen.point)).filter(
             Absen.user_id == user.id,
@@ -100,17 +104,13 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
             "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), pulang.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), pulang.batas_jam)}").where(Absen.keterangan=='hadir').first()
         }
 
-        isIzin = False
         izin_active = db.query(Izin).filter(Izin.user_id == user_id, Izin.jam_kembali == None).first()
         if izin_active :
             isIzin = True
         
-        isDinasLuar = False
-        # dinas_luar_active = db.query(DinasLuar)
-        user = db.query(User).where(User.id == user_id).first()
-
-        if not user:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User not found")
+        dinas_luar = db.query(Absen).where(datetime.combine(datetime.now(), time.fromisoformat("00:00:00")) < Absen.tanggal_absen < datetime.combine(datetime.now(), time.fromisoformat("23:59:59"))).first()
+        if dinas_luar:
+            isDinasLuar = True
 
         return {
             "posisi_perusahaan": user.position,
