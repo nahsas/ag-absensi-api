@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import UUID, Column, ForeignKey, Integer, String
+from sqlalchemy import UUID, Column, ForeignKey, Integer, String, Time
 from app.Core.Database import Base
 from sqlalchemy.orm import relationship
 
@@ -12,7 +12,7 @@ class RolesSetting(Base):
     name = Column(String)
     jam_id = Column(String, ForeignKey('setting_jams.id'))
     operator = Column(String)
-    value = Column(Integer)
+    value = Column(Time)
     point = Column(Integer)
 
     jam = relationship('SettingJam', uselist=False)

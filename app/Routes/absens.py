@@ -1,4 +1,5 @@
 from typing import Optional, Union
+import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
@@ -12,11 +13,12 @@ import os
 from uuid import UUID, uuid4
 
 from app.Core.Database import get_db
-from app.Core.Essential import add_absen, calculate_point, get_auth_user
+from app.Core.Essential import add_absen, calculate_point, check_libur, get_auth_user
 from app.Models.Absen import Absen
 from app.Models.Izin import Izin
 from app.Models.RolesSetting import RolesSetting
 from app.Models.Sakit import Sakit
+from app.Models.Setting import Setting
 from app.Models.SettingJam import SettingJam
 from app.Models.User import User
 
@@ -64,21 +66,9 @@ class SetAbsenResponse(BaseModel):
 
 router = APIRouter()
 
-jam = {
-    "masuk": '07:00',
-    "istirahat": '12:00',
-    "kembali": '13:00',
-    "maximal_pulang": '23:59'
-}
-
-jam_masuk = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['masuk']}:00")
-jam_istirahat = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['istirahat']}:00")
-jam_kembali = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['kembali']}:00")
-jam_pulang = datetime.fromisoformat(f"{datetime.now(pytz.timezone('Asia/Jakarta')).date()}T{jam['maximal_pulang']}:00")
-jam_masuk_time = time.fromisoformat(jam['masuk'])
-jam_istirahat_time = time.fromisoformat(jam['istirahat'])
-jam_kembali_time = time.fromisoformat(jam['kembali'])
-jam_pulang_time = time.fromisoformat(jam['maximal_pulang'])
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(PROJECT_ROOT, 'uploads',"absen_bukti")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get(
     '/status',
@@ -87,32 +77,40 @@ jam_pulang_time = time.fromisoformat(jam['maximal_pulang'])
     description="Endpoint untuk mendapatkan status absensi pengguna pada hari ini, termasuk total poin yang telah dikumpulkan."
 )
 def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
+        isIzin = False
+        isDinasLuar = False
         today = datetime.now(pytz.timezone('Asia/Jakarta')).date()
-
         user = db.query(User).where(User.id == user_id).first()
+
+        if not user:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User not found")
 
         total_point = db.query(func.sum(Absen.point)).filter(
             Absen.user_id == user.id,
         ).scalar() or 0
 
+        try:
+            jam_masuk = db.query(SettingJam).where(SettingJam.nama_jam == 'Jam masuk').first()
+            istirahat = db.query(SettingJam).where(SettingJam.nama_jam == 'Istirahat').first()
+            kembali = db.query(SettingJam).where(SettingJam.nama_jam == 'Masuk kembali').first()
+            pulang = db.query(SettingJam).where(SettingJam.nama_jam == 'Pulang').first()
+        except Exception:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pastikan 'Jam masuk','Istirahat','Masuk kembali','Pulang' sudah di set di database")
+
         result = {
-            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['masuk']}", Absen.tanggal_absen < f"{today} {jam['istirahat']}").where(Absen.keterangan=='hadir').first(),
-            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['istirahat']}", Absen.tanggal_absen < f"{today} {jam['kembali']}").where(Absen.keterangan=='hadir').first(),
-            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['kembali']}", Absen.tanggal_absen < f"{today} {jam['maximal_pulang']}").where(Absen.keterangan=='hadir').first(),
-            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['maximal_pulang']}").where(Absen.keterangan=='hadir').first()
+            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, jam_masuk.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, jam_masuk.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, istirahat.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, istirahat.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, kembali.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, kembali.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(today, pulang.jam)}", Absen.tanggal_absen < f"{datetime.combine(today, pulang.batas_jam)}").where(Absen.keterangan=='hadir').first()
         }
 
-        isIzin = False
         izin_active = db.query(Izin).filter(Izin.user_id == user_id, Izin.jam_kembali == None).first()
         if izin_active :
             isIzin = True
         
-        isDinasLuar = False
-        # dinas_luar_active = db.query(DinasLuar)
-        user = db.query(User).where(User.id == user_id).first()
-
-        if not user:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User not found")
+        dinas_luar = db.query(Absen).where(datetime.combine(today, time.fromisoformat("00:00:00")) < Absen.tanggal_absen, Absen.tanggal_absen < datetime.combine(today, time.fromisoformat("23:59:59"))).first()
+        if dinas_luar :
+            isDinasLuar = True
 
         return {
             "posisi_perusahaan": user.position,
@@ -136,9 +134,6 @@ def get_absens(
     db: Session = Depends(get_db), 
     auth_user: str = Depends(get_auth_user)
 ):
-    auth_user = auth_user.encode('utf-8');
-
-
     if page < 1 or limit < 1:
         raise HTTPException(status_code=400, detail="Page and limit must be positive integers.")
 
@@ -157,43 +152,62 @@ def get_absens(
     offset = (page - 1) * limit
     data = absens_query.order_by(Absen.tanggal_absen.desc()).offset(offset).limit(limit).all()
 
+    try:
+        jam_masuk = db.query(SettingJam).where(SettingJam.nama_jam == 'Jam masuk').first()
+        istirahat = db.query(SettingJam).where(SettingJam.nama_jam == 'Istirahat').first()
+        kembali = db.query(SettingJam).where(SettingJam.nama_jam == 'Masuk kembali').first()
+        pulang = db.query(SettingJam).where(SettingJam.nama_jam == 'Pulang').first()
+    except Exception:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pastikan 'Jam masuk','Istirahat','Masuk kembali','Pulang' sudah di set di database")
+
+
     result = []
     for absen in data:
         absen_time = absen.tanggal_absen.time()
         tipe = "Unknown"
 
-        if absen_time >= jam_pulang_time and absen.keterangan != 'sakit':
-            tipe = "Pulang"
-        elif absen_time >= jam_kembali_time and absen.keterangan != 'sakit':
-            tipe = "Kembali ke kantor"
-        elif absen_time >= jam_istirahat_time and absen.keterangan != 'sakit':
-            tipe = "Istirahat"
-        elif absen_time >= jam_masuk_time and absen.keterangan != 'sakit':
-            tipe = 'Masuk'
-        elif absen.keterangan == 'dinas_luar' and absen.keterangan != 'sakit':
-            tipe = 'Dinas Luar'
-        if absen.keterangan == 'tanpa_keterangan':
-            tipe = "Alpha"
+        sakit_approve = None
+
+
         if absen.keterangan == 'izin':
             izin = db.query(Izin).where(Izin.absen_id == absen.id).first()
             tipe = izin.judul if izin is not None else "Izin"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+
         if absen.keterangan == 'sakit':
-            tipe = f"Sakit"
-
-        sakit_approve = None
-        if absen.keterangan == "sakit":
+            tipe = f"Izin"
             sakit = db.query(Sakit).where(Sakit.absen_id == absen.id).first()
-            sakit_approve = sakit.approved if sakit else None
+            sakit_approve = sakit.approved if sakit else None            
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
 
-        result.append({
-            "id": absen.id,
-            "tipe": tipe,
-            "keterangan": absen.keterangan,
-            "sakit_approve": sakit_approve,
-            "bukti": absen.bukti,
-            "tanggal_absen": absen.tanggal_absen,
-            "point": absen.point
-        })
+        if absen.keterangan == 'dinas_luar':
+            tipe = 'Dinas Luar'
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+
+        if absen.keterangan == 'tanpa_keterangan':
+            tipe = "Alpha"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+
+        if absen_time >= pulang.jam:
+            tipe = "Pulang"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+        elif absen_time >= kembali.jam:
+            tipe = "Kembali ke kantor"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+        elif absen_time >= istirahat.jam:
+            tipe = "Istirahat"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+        elif absen_time >= jam_masuk.jam:
+            tipe = 'Masuk'
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
 
     return {
         "page": page,
@@ -201,10 +215,6 @@ def get_absens(
         "total_data": total_data,
         "data": result
     }
-
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-UPLOAD_DIR = os.path.join(PROJECT_ROOT, 'uploads',"absen_bukti")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get(
     "/absen-image/{filename}", 
@@ -230,6 +240,9 @@ async def absen_masuk(
     db: Session = Depends(get_db), 
     user_id: str = Depends(get_auth_user)
 ):
+    if check_libur(db):
+        return {"Tidak ada absen hari ini dikarenakan sedang libur"}
+
     input_time = datetime.now(pytz.timezone('Asia/Jakarta'))
 
     user = db.query(User).options(joinedload(User.role)).get(user_id)
@@ -269,11 +282,12 @@ async def absen_masuk(
             detail=f"Anda sudah melakukan absen {jam_absen_rule.nama_jam}"
         )
     
-    point = calculate_point(user.role.id, jam_absen_rule.id, input_time.time(), db)
+    point = calculate_point(user.id, input_time.time(), db)
     
     keterangan_absen = "hadir" 
 
     await add_absen(
+        id=str(uuid.uuid4()),
         user_id=user_id,
         bukti=bukti,
         keterangan=keterangan_absen,

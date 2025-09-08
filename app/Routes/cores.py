@@ -1,3 +1,4 @@
+from datetime import datetime, time
 from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
 from sqlalchemy.orm import Session
@@ -7,6 +8,11 @@ from app.Core.Essential import get_auth_user
 import geocoder as gc
 import math
 from pydantic import BaseModel, Field
+
+from app.Models.RolesSetting import RolesSetting
+from app.Models.Setting import Setting
+from app.Models.SettingJam import SettingJam
+from app.Models.User import User
 
 # Definisikan Pydantic model untuk respons sukses
 class GetDistanceResponse(BaseModel):
@@ -75,3 +81,33 @@ def haversine(lat1, lon1, lat2, lon2):
 
     distance = R * c
     return distance
+
+@router.get('/time_setting')
+def getTimeSetting(db:Session = Depends(get_db)):
+    query_res = db.query(SettingJam).order_by(SettingJam.jam).all()
+
+    res = []
+    for data in query_res:
+        jam = time.fromisoformat(str(data.jam)).hour
+        menit = time.fromisoformat(str(data.jam)).minute
+        jam_akhir = time.fromisoformat(str(data.batas_jam)).hour
+        menit_akhir = time.fromisoformat(str(data.batas_jam)).minute
+        res.append({
+            "nama":data.nama_jam,
+            "jam_awal":{
+                "jam":jam,
+                "menit":menit
+            },
+            "jam_akhir":{
+                "jam":jam_akhir,
+                "menit":menit_akhir
+            }
+        });
+
+    return res
+
+
+@router.get('/get_setting')
+def getSetting(db: Session = Depends(get_db)):
+    res = db.query(Setting).all()
+    return res

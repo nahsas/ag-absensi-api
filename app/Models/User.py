@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import UUID, Boolean, Column, String, ForeignKey
+from sqlalchemy import Boolean, Column, String, ForeignKey
 from app.Core.Database import Base
 from sqlalchemy.orm import relationship
 
@@ -17,7 +17,7 @@ class User(Base):
     no_hp = Column(String)
     password = Column(String)
     position = Column(String)
-    roles_id = Column(UUID(as_uuid=True), ForeignKey('roles.id'))
+    roles_id = Column(String, ForeignKey('roles.id'))
     isFirstLogin = Column(Boolean)
 
     role = relationship('Role', uselist=False)
