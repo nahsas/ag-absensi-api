@@ -14,10 +14,15 @@ from sqlalchemy.orm import Session
 
 from app.Models.Absen import Absen
 from app.Models.RolesSetting import RolesSetting
+from app.Models.Setting import Setting
 from app.Models.SettingJam import SettingJam
+from app.Models.User import User
 
 SECRET_KEY = 'lbnW+pa2RCtZJRduCC1dXBWy5/xB7mrlHuX63+BuKCo='
 ALGORITHM = "HS256"
+# Direktori untuk menyimpan file bukti
+UPLOAD_DIR = "uploads/absen_bukti"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class OptionalHTTPBearer(HTTPBearer):
     async def __call__(self, request: Request) -> Optional[str]:
@@ -79,10 +84,6 @@ def get_auth_user(token:str = Depends(oauth_scheme)):
     except BaseException:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Jwt not valid")
 
-# Direktori untuk menyimpan file bukti
-UPLOAD_DIR = "uploads/absen_bukti"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 async def add_absen(
     user_id: str, 
     bukti: Optional[UploadFile], 
@@ -143,43 +144,42 @@ async def input_izin(
     db.refresh(new_absen)
     return True
 
-def calculate_point(role_id: str, jam_id: str, absen_time: datetime.time, db: Session) -> int:
-    """Menghitung poin berdasarkan aturan role dan jam absensi."""
+def check_libur(db:Session) -> bool:
+    try:
+        is_libur = db.query(Setting).where(Setting.name == 'Libur').first().value
+        return True if is_libur == 'true' else False
+    except Exception:
+        return HTTPException(status.HTTP_400_BAD_REQUEST, "'Libur' Tidak ada di setting database")
+
+def calculate_point(user: str, absen_time: datetime.time, db: Session) -> int:
+    user_auth = db.query(User).where(User.id == user).first()
+    role_setting = db.query(RolesSetting).where(RolesSetting.roles_id == user_auth.roles_id).order_by(RolesSetting.point).all()
+
+    if not role_setting:
+        return 0
     
-    # Dapatkan semua aturan yang relevan dari RolesSetting untuk role dan jam tertentu
-    aturan_list = db.query(RolesSetting).filter(
-        RolesSetting.roles_id == role_id,
-        RolesSetting.jam_id == jam_id
-    ).order_by(RolesSetting.value).all()
-    # Mengurutkan berdasarkan `value` akan membantu dalam kasus aturan yang tumpang tindih
-
-    if not aturan_list:
-        return 0  # Mengembalikan 0 jika tidak ada aturan yang cocok
-
-    # Dapatkan jam ideal dari SettingJam
-    ideal_jam = db.query(SettingJam).get(jam_id).jam
-    
-    # Hitung selisih waktu dalam menit.
-    # Selisih negatif = datang lebih awal
-    # Selisih positif = datang terlambat
-    ideal_dt = datetime.combine(datetime.today(), ideal_jam)
-    absen_dt = datetime.combine(datetime.today(), absen_time)
-    diff_minutes = (absen_dt - ideal_dt).total_seconds() / 60
-
-    # Iterasi setiap aturan untuk menemukan yang paling cocok
-    # Jika ada beberapa aturan yang cocok, aturan yang terakhir (tergantung urutan) akan mengalahkan yang lain
     final_point = 0
-    for aturan in aturan_list:
-        if aturan.operator == '=' and diff_minutes == aturan.value:
+    for aturan in role_setting:
+        aturan_dt = datetime.combine(datetime.today(), time.fromisoformat(str(aturan.value)).replace(second=0,microsecond=0))
+        absen_dt = datetime.combine(datetime.today(), absen_time.replace(second=0,microsecond=0))
+        print(aturan_dt)
+        print(absen_dt)
+        diff_minutes = (absen_dt - aturan_dt).total_seconds() / 60
+        if aturan.operator == '=' and absen_dt == aturan_dt:
             final_point = aturan.point
-        elif aturan.operator == '>' and diff_minutes > aturan.value:
+            break
+        elif aturan.operator == '>' and absen_dt > aturan_dt:
             final_point = aturan.point
-        elif aturan.operator == '<' and diff_minutes < aturan.value:
+            break
+        elif aturan.operator == '<' and absen_dt < aturan_dt:
             final_point = aturan.point
-        elif aturan.operator == '>=' and diff_minutes >= aturan.value:
+            break
+        elif aturan.operator == '>=' and absen_dt >= aturan_dt:
             final_point = aturan.point
-        elif aturan.operator == '<=' and diff_minutes <= aturan.value:
+            break
+        elif aturan.operator == '<=' and absen_dt <= aturan_dt:
             final_point = aturan.point
+            break
             
     return final_point
 

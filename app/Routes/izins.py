@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import pytz
 from sqlalchemy.orm import Session, joinedload
 from app.Core.Database import get_db
-from app.Core.Essential import get_auth_user
+from app.Core.Essential import check_libur, get_auth_user
 from app.Models.Absen import Absen
 from app.Models.SettingJam import SettingJam
 from app.Models.User import User
@@ -25,7 +25,10 @@ async def add_izin(
     data:izin_input,
     db: Session = Depends(get_db),
     user_id_str: str = Depends(get_auth_user)
-):
+):    
+    if check_libur(db):
+        return {"Tidak ada izin keluar kantor hari ini dikarenakan sedang libur"}
+
     # Tidak perlu meng-encode user_id, biarkan tetap string
     # Anggap user_id dari token adalah string UUID yang valid.
     
@@ -97,6 +100,9 @@ async def back_to_office(
     db: Session = Depends(get_db),
     user_id_str: str = Depends(get_auth_user)
 ):
+    if check_libur(db):
+        return {"Tidak ada keluar kantor hari ini dikarenakan sedang libur"}
+
     # Tidak perlu meng-encode user_id_str
     
     # Cari izin yang sedang berlangsung untuk user ini
