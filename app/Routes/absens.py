@@ -94,10 +94,10 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pastikan 'Jam masuk','Istirahat','Masuk kembali','Pulang' sudah di set di database")
 
         result = {
-            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), jam_masuk.jam)}", Absen.tanggal_absen < f"{today} {jam['istirahat']}").where(Absen.keterangan=='hadir').first(),
-            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['istirahat']}", Absen.tanggal_absen < f"{today} {jam['kembali']}").where(Absen.keterangan=='hadir').first(),
-            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['kembali']}", Absen.tanggal_absen < f"{today} {jam['pulang']}").where(Absen.keterangan=='hadir').first(),
-            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{today} {jam['pulang']}").where(Absen.keterangan=='hadir').first()
+            "pagi": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), jam_masuk.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), jam_masuk.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "istirahat": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), istirahat.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), istirahat.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "kembali": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), kembali.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), kembali.batas_jam)}").where(Absen.keterangan=='hadir').first(),
+            "pulang": db.query(Absen).filter(Absen.user_id == user_id, Absen.tanggal_absen >= f"{datetime.combine(datetime.now(), pulang.jam)}", Absen.tanggal_absen < f"{datetime.combine(datetime.now(), pulang.batas_jam)}").where(Absen.keterangan=='hadir').first()
         }
 
         isIzin = False
@@ -152,43 +152,62 @@ def get_absens(
     offset = (page - 1) * limit
     data = absens_query.order_by(Absen.tanggal_absen.desc()).offset(offset).limit(limit).all()
 
+    try:
+        jam_masuk = db.query(SettingJam).where(SettingJam.nama_jam == 'Jam masuk').first()
+        istirahat = db.query(SettingJam).where(SettingJam.nama_jam == 'Istirahat').first()
+        kembali = db.query(SettingJam).where(SettingJam.nama_jam == 'Masuk kembali').first()
+        pulang = db.query(SettingJam).where(SettingJam.nama_jam == 'Pulang').first()
+    except Exception:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="pastikan 'Jam masuk','Istirahat','Masuk kembali','Pulang' sudah di set di database")
+
+
     result = []
     for absen in data:
         absen_time = absen.tanggal_absen.time()
         tipe = "Unknown"
 
-        if absen_time >= jam_pulang_time and absen.keterangan != 'sakit':
-            tipe = "Pulang"
-        elif absen_time >= jam_kembali_time and absen.keterangan != 'sakit':
-            tipe = "Kembali ke kantor"
-        elif absen_time >= jam_istirahat_time and absen.keterangan != 'sakit':
-            tipe = "Istirahat"
-        elif absen_time >= jam_masuk_time and absen.keterangan != 'sakit':
-            tipe = 'Masuk'
-        elif absen.keterangan == 'dinas_luar' and absen.keterangan != 'sakit':
-            tipe = 'Dinas Luar'
-        if absen.keterangan == 'tanpa_keterangan':
-            tipe = "Alpha"
+        sakit_approve = None
+
+
         if absen.keterangan == 'izin':
             izin = db.query(Izin).where(Izin.absen_id == absen.id).first()
             tipe = izin.judul if izin is not None else "Izin"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+
         if absen.keterangan == 'sakit':
-            tipe = f"Sakit"
-
-        sakit_approve = None
-        if absen.keterangan == "sakit":
+            tipe = f"Izin"
             sakit = db.query(Sakit).where(Sakit.absen_id == absen.id).first()
-            sakit_approve = sakit.approved if sakit else None
+            sakit_approve = sakit.approved if sakit else None            
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
 
-        result.append({
-            "id": absen.id,
-            "tipe": tipe,
-            "keterangan": absen.keterangan,
-            "sakit_approve": sakit_approve,
-            "bukti": absen.bukti,
-            "tanggal_absen": absen.tanggal_absen,
-            "point": absen.point
-        })
+        if absen.keterangan == 'dinas_luar':
+            tipe = 'Dinas Luar'
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+
+        if absen.keterangan == 'tanpa_keterangan':
+            tipe = "Alpha"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+
+        if absen_time >= pulang.jam:
+            tipe = "Pulang"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+        elif absen_time >= kembali.jam:
+            tipe = "Kembali ke kantor"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+        elif absen_time >= istirahat.jam:
+            tipe = "Istirahat"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
+        elif absen_time >= jam_masuk.jam:
+            tipe = 'Masuk'
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
 
     return {
         "page": page,
