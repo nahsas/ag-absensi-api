@@ -1,6 +1,7 @@
 from datetime import datetime, time
 from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
+import pytz
 from sqlalchemy.orm import Session
 from app.Core import Env
 from app.Core.Database import get_db
@@ -85,6 +86,10 @@ def haversine(lat1, lon1, lat2, lon2):
 @router.get('/time_setting')
 def getTimeSetting(db:Session = Depends(get_db)):
     query_res = db.query(SettingJam).order_by(SettingJam.jam).all()
+    is_lembur = db.query(Setting).where(Setting.name == 'Lembur sabtu').first()
+    if not is_lembur:
+        return {"'Lembur sabtu' tidak di atur di setting admin"}
+    is_lembur = True if is_lembur.value == 'true' else False
 
     res = []
     for data in query_res:
@@ -92,6 +97,48 @@ def getTimeSetting(db:Session = Depends(get_db)):
         menit = time.fromisoformat(str(data.jam)).minute
         jam_akhir = time.fromisoformat(str(data.batas_jam)).hour
         menit_akhir = time.fromisoformat(str(data.batas_jam)).minute
+        if datetime.now(pytz.timezone('Asia/Jakarta')).weekday() == 5 and data.nama_jam != 'Pulang':
+            if is_lembur:
+                if data.nama_jam == 'Istirahat':
+                    res.append({
+                        "nama":data.nama_jam,
+                        "jam_awal":{
+                            "jam":12,
+                            "menit":0
+                        },
+                        "jam_akhir":{
+                            "jam":12,
+                            "menit":44
+                        }
+                    })
+                    continue
+                if data.nama_jam == 'Masuk kembali':
+                    res.append({
+                        "nama":data.nama_jam,
+                        "jam_awal":{
+                            "jam":12,
+                            "menit":45
+                        },
+                        "jam_akhir":{
+                            "jam":13,
+                            "menit":30
+                        }
+                    })
+                    continue
+
+            res.append({
+                "nama":data.nama_jam,
+                "jam_awal":{
+                    "jam":0,
+                    "menit":0
+                },
+                "jam_akhir":{
+                    "jam":0,
+                    "menit":0
+                }
+            })
+            continue
+
         res.append({
             "nama":data.nama_jam,
             "jam_awal":{
@@ -102,7 +149,7 @@ def getTimeSetting(db:Session = Depends(get_db)):
                 "jam":jam_akhir,
                 "menit":menit_akhir
             }
-        });
+        })
 
     return res
 
