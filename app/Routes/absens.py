@@ -287,7 +287,6 @@ async def absen_masuk(
     keterangan_absen = "hadir" 
 
     await add_absen(
-        id=str(uuid.uuid4()),
         user_id=user_id,
         bukti=bukti,
         keterangan=keterangan_absen,

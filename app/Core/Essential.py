@@ -3,6 +3,7 @@ import datetime as dt
 import os
 from typing import Optional
 from uuid import uuid4
+import uuid
 from fastapi import HTTPException, Request, UploadFile, requests, status
 from fastapi.params import Depends
 from fastapi.security import HTTPBearer
@@ -103,6 +104,7 @@ async def add_absen(
         bukti_url = f"/absen/absen-image/{filename}"
 
     new_absen = Absen(
+        id=str(uuid.uuid4()),
         user_id=user_id,
         keterangan=keterangan,
         bukti=bukti_url,
