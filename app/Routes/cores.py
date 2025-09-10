@@ -47,7 +47,10 @@ def get_distance(
     batas_jarak: int = maximal_jarak_login_m, 
     db: Session = Depends(get_db)
 ):
-    coords = {f"lat":-2.7405128, "lon":107.6496313}
+    lat_db = float(db.query(Setting).where(Setting.name == 'Lat Perusahaan').first().value)
+    lon_db = float(db.query(Setting).where(Setting.name == 'Lon Perusahaan').first().value)
+
+    coords = {f"lat":lat_db, "lon":lon_db}
 
     jarak = haversine(coords['lat'], coords['lon'], lat, lon)
 
