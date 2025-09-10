@@ -49,6 +49,7 @@ def get_distance(
 ):
     lat_db = float(db.query(Setting).where(Setting.name == 'Lat Perusahaan').first().value)
     lon_db = float(db.query(Setting).where(Setting.name == 'Lon Perusahaan').first().value)
+    batas_jarak = int(db.query(Setting).where(Setting.name == 'Jarak dari kantor').first().value)
 
     coords = {f"lat":lat_db, "lon":lon_db}
 
