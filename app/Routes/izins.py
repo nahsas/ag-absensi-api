@@ -29,9 +29,6 @@ async def add_izin(
     if check_libur(db):
         return {"Tidak ada izin keluar kantor hari ini dikarenakan sedang libur"}
 
-    # Tidak perlu meng-encode user_id, biarkan tetap string
-    # Anggap user_id dari token adalah string UUID yang valid.
-    
     try:
         input_time = datetime.now(pytz.timezone('Asia/Jakarta')) if data.input is None else datetime.fromisoformat(data.input)
     except ValueError:
@@ -103,9 +100,6 @@ async def back_to_office(
     if check_libur(db):
         return {"Tidak ada keluar kantor hari ini dikarenakan sedang libur"}
 
-    # Tidak perlu meng-encode user_id_str
-    
-    # Cari izin yang sedang berlangsung untuk user ini
     izin_active = db.query(Izin).filter(
         Izin.user_id == user_id_str,
         Izin.jam_kembali == None
@@ -126,15 +120,13 @@ async def back_to_office(
             f.write(await bukti_kembali.read())
         bukti_url = f"/absen/absen-image/{filename}"
     
-    # Update data izin dengan data kembali
     izin_active.jam_kembali = datetime.now(pytz.timezone('Asia/Jakarta'))
     izin_active.bukti_kembali = bukti_url
     
-    # Hitung durasi izin
     absen_izin = db.query(Absen).filter(Absen.id == izin_active.absen_id).first()
     if absen_izin:
-        durasi_izin = izin_active.jam_kembali - absen_izin.tanggal_absen
-        izin_active.keluar_selama = durasi_izin.seconds // 60 # dalam menit
+        durasi_izin = datetime.fromisoformat(izin_active.jam_kembali) - datetime.fromisoformat(absen_izin.tanggal_absen)
+        izin_active.keluar_selama = durasi_izin.seconds // 60
     
     db.commit()
 

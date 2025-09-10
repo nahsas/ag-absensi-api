@@ -1,6 +1,7 @@
 from datetime import datetime, time
 from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
+import pytz
 from sqlalchemy.orm import Session
 from app.Core import Env
 from app.Core.Database import get_db
@@ -46,7 +47,11 @@ def get_distance(
     batas_jarak: int = maximal_jarak_login_m, 
     db: Session = Depends(get_db)
 ):
-    coords = {f"lat":-2.7405128, "lon":107.6496313}
+    lat_db = float(db.query(Setting).where(Setting.name == 'Lat Perusahaan').first().value)
+    lon_db = float(db.query(Setting).where(Setting.name == 'Lon Perusahaan').first().value)
+    batas_jarak = int(db.query(Setting).where(Setting.name == 'Jarak dari kantor').first().value)
+
+    coords = {f"lat":lat_db, "lon":lon_db}
 
     jarak = haversine(coords['lat'], coords['lon'], lat, lon)
 
@@ -85,6 +90,13 @@ def haversine(lat1, lon1, lat2, lon2):
 @router.get('/time_setting')
 def getTimeSetting(db:Session = Depends(get_db)):
     query_res = db.query(SettingJam).order_by(SettingJam.jam).all()
+    is_libur = db.query(Setting).where(Setting.name == 'Libur').first()
+    if not is_libur:
+        return {"'Lembur sabtu' tidak di atur di setting admin"}
+    is_libur = True if is_libur.value == 'true' else False
+
+    if is_libur:
+        return {"Hari ini adalah hari libur"}
 
     res = []
     for data in query_res:
@@ -102,7 +114,7 @@ def getTimeSetting(db:Session = Depends(get_db)):
                 "jam":jam_akhir,
                 "menit":menit_akhir
             }
-        });
+        })
 
     return res
 
