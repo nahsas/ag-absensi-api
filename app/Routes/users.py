@@ -1,7 +1,9 @@
 from datetime import timedelta
+import os
 from typing import Optional
-from uuid import UUID
-from fastapi import Depends, HTTPException, status
+from uuid import UUID, uuid4
+from fastapi import Depends, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlalchemy.orm import Session
 import bcrypt as bc
@@ -11,6 +13,9 @@ from app.Core.Essential import create_access_token, get_auth_user
 from app.Models.User import User
 from app.Schema import user
 from pydantic import BaseModel, Field
+
+UPLOAD_DIR = "uploads/profile_picture"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Definisikan Pydantic models untuk respons
 class LoginResponse(BaseModel):
@@ -105,3 +110,34 @@ def updatePassword(data: user.NewPasswordUser, db: Session = Depends(get_db), us
     }
 
     return result
+
+@router.put('/update/photo_profile')
+async def update_photo_profile(photo_profile: UploadFile, db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
+    res = db.query(User).where(User.id == user_id).first()
+    if not res:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Akun tidak ada")
+    if photo_profile and photo_profile.filename:
+        ext = os.path.splitext(photo_profile.filename)[1]
+        filename = f"{uuid4().hex}{ext}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        with open(file_path, "wb") as f:
+            f.write(await photo_profile.read())
+        profile_url = f"/absen/photo_profile/{filename}"
+    res.photo_profile = profile_url
+    db.commit()
+    db.refresh(res)
+    return res
+
+@router.get('/user/photo_profile/{image_filename}')
+def get_photo_profile(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path)
+
+@router.get('/me')
+def me(db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
+    res = db.query(User).where(User.id == user_id).first()
+    if not res:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Akun tidak ada")
+    return res

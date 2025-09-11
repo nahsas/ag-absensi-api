@@ -300,3 +300,12 @@ async def absen_masuk(
         "tipe_absen": jam_absen_rule.nama_jam,
         "point_didapat": point
     }
+
+@router.get('/absen_detail/{absen_id}')
+def get_absen_detail(absen_id: str, db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
+    absen = db.query(Absen).where(Absen.id == absen_id, Absen.user_id == user_id).first()
+
+    if not absen:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Absen tidak ditemukan")
+
+    return absen
