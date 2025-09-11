@@ -38,7 +38,12 @@ class OptionalHTTPBearer(HTTPBearer):
 oauth_scheme = OptionalHTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def create_access_token(data: dict, expires_delta: Optional[dt.timedelta] = None):
+def create_access_token(db:Session,data: dict, expires_delta: Optional[dt.timedelta] = None):
+    expire_minute = db.query(Setting).where(Setting.name == 'Token Expire').first().value
+    if expire_minute and expire_minute.isdigit():
+        expires_delta = dt.timedelta(minutes=int(expire_minute))
+    else:
+        expires_delta = dt.timedelta(minutes=15)
     # Salinan data untuk diolah
     to_encode = data.copy()
     

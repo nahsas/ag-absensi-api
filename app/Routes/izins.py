@@ -125,8 +125,14 @@ async def back_to_office(
     
     absen_izin = db.query(Absen).filter(Absen.id == izin_active.absen_id).first()
     if absen_izin:
-        durasi_izin = datetime.fromisoformat(izin_active.jam_kembali) - datetime.fromisoformat(absen_izin.tanggal_absen)
-        izin_active.keluar_selama = durasi_izin.seconds // 60
+        jam_kembali_dt = izin_active.jam_kembali
+        tanggal_absen_dt = absen_izin.tanggal_absen
+        if isinstance(jam_kembali_dt, str):
+            jam_kembali_dt = datetime.fromisoformat(jam_kembali_dt)
+        if isinstance(tanggal_absen_dt, str):
+            tanggal_absen_dt = datetime.fromisoformat(tanggal_absen_dt)
+        durasi_izin = jam_kembali_dt - tanggal_absen_dt
+        izin_active.keluar_selama = int(durasi_izin.total_seconds() // 60)
     
     db.commit()
 

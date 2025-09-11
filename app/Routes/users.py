@@ -59,10 +59,9 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     if not check_password:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password salah")
 
-    access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(
+        db,
         data={"sub": str(res.id)},
-        expires_delta=access_token_expires
     )
 
     result = {
