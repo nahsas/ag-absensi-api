@@ -131,6 +131,12 @@ async def back_to_office(
             jam_kembali_dt = datetime.fromisoformat(jam_kembali_dt)
         if isinstance(tanggal_absen_dt, str):
             tanggal_absen_dt = datetime.fromisoformat(tanggal_absen_dt)
+        # Ensure both datetimes are timezone-aware
+        tz = pytz.timezone('Asia/Jakarta')
+        if jam_kembali_dt.tzinfo is None:
+            jam_kembali_dt = tz.localize(jam_kembali_dt)
+        if tanggal_absen_dt.tzinfo is None:
+            tanggal_absen_dt = tz.localize(tanggal_absen_dt)
         durasi_izin = jam_kembali_dt - tanggal_absen_dt
         izin_active.keluar_selama = int(durasi_izin.total_seconds() // 60)
     

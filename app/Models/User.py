@@ -17,6 +17,7 @@ class User(Base):
     no_hp = Column(String)
     password = Column(String)
     position = Column(String)
+    photo_profile = Column(String)
     roles_id = Column(String, ForeignKey('roles.id'))
     isFirstLogin = Column(Boolean)
 
