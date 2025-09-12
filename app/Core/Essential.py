@@ -92,7 +92,8 @@ def get_auth_user(token:str = Depends(oauth_scheme)):
 
 async def add_absen(
     user_id: str, 
-    bukti: Optional[UploadFile], 
+    bukti: Optional[UploadFile],
+    supabase_url: Optional[str], 
     keterangan: str,
     point: int,
     tanggal_absen: datetime, 
@@ -112,7 +113,7 @@ async def add_absen(
         id=str(uuid.uuid4()),
         user_id=user_id,
         keterangan=keterangan,
-        bukti=bukti_url,
+        bukti=supabase_url,
         point=point,
         tanggal_absen=tanggal_absen,
         show=True

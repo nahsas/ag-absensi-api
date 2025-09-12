@@ -236,6 +236,7 @@ def get_absen_image(filename: str):
 )
 async def absen_masuk(
     input_time: Optional[datetime] = None, 
+    supabase_url: Optional[str] = None, 
     bukti: UploadFile = File(None), 
     db: Session = Depends(get_db), 
     user_id: str = Depends(get_auth_user)
@@ -288,6 +289,7 @@ async def absen_masuk(
 
     await add_absen(
         user_id=user_id,
+        supabase_url=supabase_url,
         bukti=bukti,
         keterangan=keterangan_absen,
         point=point,

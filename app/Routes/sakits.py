@@ -24,7 +24,7 @@ UPLOAD_DIR = "uploads/absen_bukti"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post('/add_sakit')
-async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.now(pytz.timezone('Asia/Jakarta')),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
+async def add_sakit(alasan:Optional[str] = None, supabase_url=Optional[str], input_time:datetime = datetime.now(pytz.timezone('Asia/Jakarta')),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
     # try:
         input_time = datetime.now(pytz.timezone('Asia/Jakarta')) if input_time == None else input_time
         user = db.query(User).where(User.id == user_id).first()
@@ -53,7 +53,7 @@ async def add_sakit(alasan:Optional[str] = None, input_time:datetime = datetime.
             id = str(uuid.uuid4()),
             user_id = user.id,
             absen_id = new_absen.id,
-            bukti_sakit = bukti_url,
+            bukti_sakit = supabase_url if supabase_url else bukti_url,
             tanggal = input_time,
             alasan = alasan,
             approved = None
