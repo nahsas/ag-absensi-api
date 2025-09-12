@@ -135,19 +135,25 @@ def getStatistic(db: Session = Depends(get_db), user = Depends(get_auth_user)):
     res = []
 
     datas = {
-        "absen_plus_this_month" : db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen.between(datetime.now().replace(day=1), datetime.now())).all(),
-        "absen_minus_this_month" : db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen.between(datetime.now().replace(day=1), datetime.now())).all(),
-        "absen_plus_month_before" : db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen < datetime.now().replace(day=1)).all(),
-        "absen_minus_month_before" : db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen < datetime.now().replace(day=1)).all()
+        "absen_plus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen.between(datetime.now().replace(day=1), datetime.now())).all()]),
+        "absen_minus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen.between(datetime.now().replace(day=1), datetime.now())).all()]),
+        "absen_plus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen < datetime.now().replace(day=1)).all()]),
+        "absen_minus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen < datetime.now().replace(day=1)).all()])
     }
 
-    for key, value in datas.items():
-        total_point = 0
-        for point in value:
-            total_point += point.point
-        res.append({
-            "type": key,
-            "total_data": len(value),
-            "point": total_point
-        })
+    res = {
+        "absen_plus_this_month":{
+            "point":datas["absen_plus_this_month"]
+        },
+        "absen_minus_this_month":{
+            "point":datas["absen_minus_this_month"]
+        },
+        "absen_plus_month_before":{
+            "point":datas["absen_plus_month_before"]
+        },
+        "absen_minus_month_before":{
+            "point":datas["absen_minus_month_before"]
+        }
+    }
+
     return res

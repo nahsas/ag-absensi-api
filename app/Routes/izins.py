@@ -93,6 +93,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post('/back-to-office')
 async def back_to_office(
+    supabase_url: Optional[str] = None,
     bukti_kembali: UploadFile = File(...),
     db: Session = Depends(get_db),
     user_id_str: str = Depends(get_auth_user)
@@ -121,7 +122,7 @@ async def back_to_office(
         bukti_url = f"/absen/absen-image/{filename}"
     
     izin_active.jam_kembali = datetime.now(pytz.timezone('Asia/Jakarta'))
-    izin_active.bukti_kembali = bukti_url
+    izin_active.bukti_kembali = supabase_url if supabase_url else bukti_url
     
     absen_izin = db.query(Absen).filter(Absen.id == izin_active.absen_id).first()
     if absen_izin:
