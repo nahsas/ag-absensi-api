@@ -6,7 +6,7 @@ from fastapi.routing import APIRouter
 from pydantic import BaseModel
 import pytz
 from sqlalchemy import DateTime
-from app.Core.Essential import get_auth_user
+from app.Core.Essential import create_izin_code, get_auth_user
 from app.Core.Database import get_db
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -22,6 +22,18 @@ class payload(BaseModel):
 
 UPLOAD_DIR = "uploads/absen_bukti"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.get('/get_user_izin')
+def get_user_izin(db:Session = Depends(get_db), user_id:str = Depends(get_auth_user)):
+    user = db.query(User).where(User.id == user_id).first()
+    if user.role.name != "superadmin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Anda tidak memiliki akses untuk melihat pengajuan izin")
+    sakits = db.query(Sakit).where(Sakit.approved == None).all()
+    result = []
+    for sakit in sakits:
+        user = db.query(User).where(User.id == sakit.user_id).first()
+        result.append({"id": sakit.id, "user_id": sakit.user_id, "user_nama": user.name if user else "Unknown", "alasan": sakit.alasan, "bukti_sakit": sakit.bukti_sakit, "tanggal": sakit.tanggal, "approved": sakit.approved, "code": sakit.code})
+    return result
 
 @router.post('/set_approve/{izin_id}')
 async def set_approve(izin_id:str, approve:bool, db:Session = Depends(get_db), user_id:str = Depends(get_auth_user)):
@@ -39,7 +51,7 @@ async def set_approve(izin_id:str, approve:bool, db:Session = Depends(get_db), u
     return {"message":"Pengajuan izin berhasil disetujui" if approve else "Pengajuan izin berhasil ditolak"}
 
 @router.post('/add_sakit')
-async def add_sakit(alasan:Optional[str] = None, supabase_url=Optional[str], input_time:datetime = datetime.now(pytz.timezone('Asia/Jakarta')),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
+async def add_sakit(alasan:Optional[str] = None, supabase_url:Optional[str] = None, input_time:datetime = datetime.now(pytz.timezone('Asia/Jakarta')),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
     # try:
         input_time = datetime.now(pytz.timezone('Asia/Jakarta')) if input_time == None else input_time
         user = db.query(User).where(User.id == user_id).first()
@@ -56,6 +68,8 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url=Optional[str], inp
         db.add(new_absen)
         db.flush()
         
+        code = create_izin_code(user_id=user.id, db=db) # Membuat kode izin unik
+
         bukti_url = None
         if bukti_kembali and bukti_kembali.filename:
             ext = os.path.splitext(bukti_kembali.filename)[1]
@@ -71,7 +85,8 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url=Optional[str], inp
             bukti_sakit = supabase_url if supabase_url else bukti_url,
             tanggal = input_time,
             alasan = alasan,
-            approved = None
+            approved = None,
+            code = code
         )
 
         db.add(new_sakit)

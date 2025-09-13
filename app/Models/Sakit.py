@@ -14,6 +14,7 @@ class Sakit(Base):
     tanggal = Column(DateTime, nullable=False, default=datetime.now(pytz.timezone('Asia/Jakarta')))
     approved = Column(Boolean, default=None, nullable=True)
     alasan = Column(String, default=None, nullable=True)
+    code = Column(String, default=None, nullable=True)
 
 Sakit.user = relationship('User')
 Sakit.absen = relationship('Absen')

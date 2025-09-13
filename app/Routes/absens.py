@@ -39,7 +39,7 @@ class AbsenStatusResponse(BaseModel):
 
 class AbsenDataResponse(BaseModel):
     id: UUID
-    tipe: str
+    tipe: Optional[str]
     keterangan: str
     bukti: Optional[str]
     sakit_approve: Optional[bool]

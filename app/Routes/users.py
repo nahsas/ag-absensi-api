@@ -72,6 +72,7 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     result = {
         "id": res.id,
         "nip": res.nip,
+        "role": res.role.name,
         "name": res.name,
         "posisi_perusahaan": res.position,
         "isFirstLogin": res.isFirstLogin,
