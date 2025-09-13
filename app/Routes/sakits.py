@@ -23,6 +23,21 @@ class payload(BaseModel):
 UPLOAD_DIR = "uploads/absen_bukti"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+@router.post('/set_approve/{izin_id}')
+async def set_approve(izin_id:str, approve:bool, db:Session = Depends(get_db), user_id:str = Depends(get_auth_user)):
+    user = db.query(User).where(User.id == user_id).first()
+    if not user or not user.role != 'superadmin':
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Anda tidak memiliki akses untuk menyetujui pengajuan izin")
+    sakit = db.query(Sakit).where(Sakit.id == izin_id).first()
+    if not sakit:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Pengajuan izin tidak ditemukan")
+    if sakit.approved is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Pengajuan izin sudah disetujui atau ditolak sebelumnya")
+    sakit.approved = approve
+    db.add(sakit)
+    db.commit()
+    return {"message":"Pengajuan izin berhasil disetujui" if approve else "Pengajuan izin berhasil ditolak"}
+
 @router.post('/add_sakit')
 async def add_sakit(alasan:Optional[str] = None, supabase_url=Optional[str], input_time:datetime = datetime.now(pytz.timezone('Asia/Jakarta')),bukti_kembali: UploadFile = File(...), db:Session = Depends(get_db),user_id:str = Depends(get_auth_user)):
     # try:
@@ -62,5 +77,3 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url=Optional[str], inp
         db.add(new_sakit)
         db.commit()
         return {"message":"Bukti sakit sudah diajukan"}
-    # except Exception:
-    #     raise HTTPException(status.HTTP_400_BAD_REQUEST,detail=f"Gagal mengajukan bukti sakit")
