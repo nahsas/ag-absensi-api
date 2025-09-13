@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.Models.Absen import Absen
 from app.Models.RolesSetting import RolesSetting
+from app.Models.Sakit import Sakit
 from app.Models.Setting import Setting
 from app.Models.SettingJam import SettingJam
 from app.Models.User import User
@@ -194,3 +195,16 @@ def calculate_point(user: str, absen_time: datetime.time, db: Session) -> int:
 def is_within_absen_time(current_time: datetime.time, jam_absen_rule: SettingJam) -> bool:
     """Memeriksa apakah waktu sekarang berada dalam rentang waktu absensi."""
     return jam_absen_rule.jam <= current_time <= jam_absen_rule.batas_jam
+
+def create_izin_code(user_id,db: Session):
+    user = db.query(User).where(User.id == user_id).first()
+    if not user:
+        return None
+    nama = user.name
+    split_nama = nama.split(" ")
+    initial = ""
+    for n in split_nama:
+        initial += n[0].upper()
+    last_izin = db.query(Sakit).where(Sakit.user_id == user.id).count()+1
+    new_code = f"{initial}{str(last_izin).zfill(5)}"
+    return new_code

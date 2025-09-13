@@ -39,7 +39,7 @@ class AbsenStatusResponse(BaseModel):
 
 class AbsenDataResponse(BaseModel):
     id: UUID
-    tipe: str
+    tipe: Optional[str]
     keterangan: str
     bukti: Optional[str]
     sakit_approve: Optional[bool]
@@ -176,9 +176,9 @@ def get_absens(
             continue
 
         if absen.keterangan == 'sakit':
-            tipe = f"Izin"
             sakit = db.query(Sakit).where(Sakit.absen_id == absen.id).first()
-            sakit_approve = sakit.approved if sakit else None            
+            tipe = sakit.alasan if sakit is not None else "Izin"
+            sakit_approve = sakit.approved if sakit else None
             result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
             continue
 
