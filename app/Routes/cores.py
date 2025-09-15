@@ -107,6 +107,7 @@ def getTimeSetting(db:Session = Depends(get_db)):
         menit_akhir = time.fromisoformat(str(data.batas_jam)).minute
         res.append({
             "nama":data.nama_jam,
+            "label":data.nama_jam,
             "jam_awal":{
                 "jam":jam,
                 "menit":menit

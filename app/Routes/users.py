@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import os
 from typing import Optional
 from uuid import UUID, uuid4
@@ -11,8 +11,10 @@ import bcrypt as bc
 from app.Core.Database import get_db
 from app.Core.Essential import create_access_token, get_auth_user
 from app.Models.User import User
+from app.Models.UserLembur import Lembur, UserLembur
 from app.Schema import user
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import joinedload
 
 UPLOAD_DIR = "uploads/profile_picture"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -64,6 +66,8 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     if not check_password:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password salah")
 
+    is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == res.id).where(Lembur.start_date <= datetime.now().date()).where(datetime.now().date() <= Lembur.end_date).first()
+
     access_token = create_access_token(
         db,
         data={"sub": str(res.id)},
@@ -72,6 +76,7 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     result = {
         "id": res.id,
         "nip": res.nip,
+        "is_lembur":True if is_lembur else False,
         "role": res.role.name,
         "name": res.name,
         "posisi_perusahaan": res.position,
