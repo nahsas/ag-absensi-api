@@ -19,6 +19,7 @@ from app.Models.Sakit import Sakit
 from app.Models.Setting import Setting
 from app.Models.SettingJam import SettingJam
 from app.Models.User import User
+from app.Models.UserLembur import Lembur
 
 SECRET_KEY = 'lbnW+pa2RCtZJRduCC1dXBWy5/xB7mrlHuX63+BuKCo='
 ALGORITHM = "HS256"
@@ -207,4 +208,9 @@ def create_izin_code(user_id,db: Session):
         initial += n[0].upper()
     last_izin = db.query(Sakit).where(Sakit.user_id == user.id).count()+1
     new_code = f"{initial}{str(last_izin).zfill(5)}"
+    return new_code
+
+def create_lembur_code(db: Session):
+    lembur_izin = db.query(Lembur).count() + 1
+    new_code = f"LMBR-{str(lembur_izin).zfill(5)}"
     return new_code
