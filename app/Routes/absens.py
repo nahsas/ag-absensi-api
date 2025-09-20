@@ -27,6 +27,8 @@ from sqlalchemy import func
 # Impor Pydantic models untuk request body dan response
 from pydantic import BaseModel, Field
 
+from app.Models.UserLembur import Lembur, UserLembur
+
 # Definisikan Pydantic models untuk respons
 class AbsenStatusResponse(BaseModel):
     id: UUID
@@ -168,6 +170,10 @@ def get_absens(
 
         sakit_approve = None
 
+        if absen.keterangan == 'lembur':
+            tipe = "Lembur"
+            result.append({"id": absen.id,"tipe": tipe,"keterangan": absen.keterangan,"sakit_approve": sakit_approve,"bukti": absen.bukti,"tanggal_absen": absen.tanggal_absen,"point": absen.point})
+            continue
 
         if absen.keterangan == 'izin':
             izin = db.query(Izin).where(Izin.absen_id == absen.id).first()
@@ -241,16 +247,50 @@ async def absen_masuk(
     db: Session = Depends(get_db), 
     user_id: str = Depends(get_auth_user)
 ):
-    if check_libur(db):
+    is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == user_id).where(Lembur.start_date <= datetime.now(pytz.timezone('Asia/Jakarta')).date()).where(datetime.now(pytz.timezone('Asia/Jakarta')).date() <= Lembur.end_date).first()
+
+    if check_libur(db) and not is_lembur:
         return {"Tidak ada absen hari ini dikarenakan sedang libur"}
 
     input_time = datetime.now(pytz.timezone('Asia/Jakarta'))
+    daftar_jam = db.query(SettingJam).order_by(SettingJam.jam)
+    jam_absen_pulang_bawah = daftar_jam.where(SettingJam.nama_jam == 'Pulang').first().jam
+    jam_absen_pulang_atas = daftar_jam.where(SettingJam.nama_jam == 'Pulang').first().batas_jam
+    check_already_absen_pulang = db.query(Absen).where(Absen.user_id==user_id).where(Absen.keterangan == 'Pulang').where(datetime.combine(datetime.now(pytz.timezone('Asia/Jakarta')).date(), jam_absen_pulang_bawah) <= Absen.tanggal_absen).where(Absen.tanggal_absen <= datetime.combine(datetime.now(pytz.timezone('Asia/Jakarta')).date(), jam_absen_pulang_atas)).first()
+    absen_mulai_lembur = db.query(Absen).where(Absen.keterangan == "lembur").where(Absen.lembur_start != None).where(Absen.lembur_end == None).first()
+    daftar_jam = daftar_jam.all()
 
     user = db.query(User).options(joinedload(User.role)).get(user_id)
     if not user or not user.role:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User atau role tidak ditemukan.")
+    
+    if (check_already_absen_pulang and is_lembur and not absen_mulai_lembur) or (check_libur(db) and is_lembur and not absen_mulai_lembur):
+        await add_absen(
+            user_id=user_id,
+            supabase_url=supabase_url,
+            bukti=bukti,
+            keterangan="lembur",
+            point=0,
+            tanggal_absen=input_time,
+            lembur_start=input_time,
+            lembur_end=None,
+            db=db
+        )
+        return {
+            "message": "Lembur telah dimulai selamat bekerja",
+            "tipe_absen": "lembur",
+            "point_didapat": 0
+        }
 
-    daftar_jam = db.query(SettingJam).order_by(SettingJam.jam).all()
+    if (check_already_absen_pulang and is_lembur and absen_mulai_lembur) or (check_libur(db) and is_lembur and absen_mulai_lembur):
+        absen_mulai_lembur.lembur_end = input_time
+        db.commit()
+
+        return {
+            "message": "Lembur telah selesai terimakasih telah bekerja",
+            "tipe_absen": "lembur",
+            "point_didapat": 0
+        }
     
     jam_absen_rule = None
     for rule in daftar_jam:
@@ -294,6 +334,8 @@ async def absen_masuk(
         keterangan=keterangan_absen,
         point=point,
         tanggal_absen=input_time,
+        lembur_start=None,
+        lembur_end=None,
         db=db
     )
 

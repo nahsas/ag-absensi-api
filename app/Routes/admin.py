@@ -23,8 +23,8 @@ def get_user(date_start:datetime, date_end:datetime, db:Session = Depends(get_db
     # Ambil semua user yang TIDAK terkait dengan lembur pada rentang tanggal tersebut
     # Cari lembur yang overlap dengan rentang tanggal yang diberikan
     overlapping_lembur = db.query(UserLembur.user_id).join(Lembur).filter(
-        Lembur.start_date <= date_end,
-        Lembur.end_date >= date_start
+        Lembur.start_date >= date_start,
+        Lembur.end_date <= date_end
     ).distinct().all()
     overlapping_user_ids = [row[0] for row in overlapping_lembur]
 
