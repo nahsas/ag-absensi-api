@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from fastapi import Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
+import pytz
 from sqlalchemy.orm import Session
 import bcrypt as bc
 
@@ -66,7 +67,7 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
     if not check_password:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password salah")
 
-    is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == res.id).where(Lembur.start_date <= datetime.now().date()).where(datetime.now().date() <= Lembur.end_date).first()
+    is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == res.id).where(Lembur.start_date <= datetime.now(pytz.timezone('Asia/Jakarta')).date()).where(datetime.now(pytz.timezone('Asia/Jakarta')).date() <= Lembur.end_date).first()
 
     access_token = create_access_token(
         db,

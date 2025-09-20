@@ -98,7 +98,9 @@ async def add_absen(
     supabase_url: Optional[str], 
     keterangan: str,
     point: int,
-    tanggal_absen: datetime, 
+    tanggal_absen: datetime,
+    lembur_start: Optional[datetime], 
+    lembur_end: Optional[datetime], 
     db: Session
 ) -> bool:
     """Menambahkan entri absensi ke database."""
@@ -118,6 +120,8 @@ async def add_absen(
         bukti=supabase_url,
         point=point,
         tanggal_absen=tanggal_absen,
+        lembur_start=lembur_start,
+        lembur_end=lembur_end,
         show=True
     )
     db.add(new_absen)
@@ -157,7 +161,7 @@ async def input_izin(
 def check_libur(db:Session) -> bool:
     try:
         is_libur = db.query(Setting).where(Setting.name == 'Libur').first().value
-        return True if is_libur == 'true' else False
+        return True if is_libur == "1" else False
     except Exception:
         return HTTPException(status.HTTP_400_BAD_REQUEST, "'Libur' Tidak ada di setting database")
 
