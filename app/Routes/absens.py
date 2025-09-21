@@ -250,7 +250,7 @@ async def absen_masuk(
     is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == user_id).where(Lembur.start_date <= datetime.now(pytz.timezone('Asia/Jakarta')).date()).where(datetime.now(pytz.timezone('Asia/Jakarta')).date() <= Lembur.end_date).first()
 
     if check_libur(db) and not is_lembur:
-        return {"Tidak ada absen hari ini dikarenakan sedang libur"}
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Tidak ada absen hari ini, dikarenakan libur")
 
     input_time = datetime.now(pytz.timezone('Asia/Jakarta'))
     daftar_jam = db.query(SettingJam).order_by(SettingJam.jam)
