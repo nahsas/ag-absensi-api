@@ -158,10 +158,10 @@ def getStatistic(db: Session = Depends(get_db), user = Depends(get_auth_user)):
     res = []
 
     datas = {
-        "absen_plus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
-        "absen_minus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
-        "absen_plus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()]),
-        "absen_minus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()])
+        "absen_plus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point >= 0).where(Absen.created_at.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
+        "absen_minus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.created_at.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
+        "absen_plus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point >= 0).where(Absen.created_at < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()]),
+        "absen_minus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.created_at < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()])
     }
 
     res = {
