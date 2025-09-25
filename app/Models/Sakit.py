@@ -2,7 +2,7 @@ from datetime import datetime
 import pytz
 from sqlalchemy.orm import relationship
 import uuid
-from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import TIMESTAMP, UUID, Boolean, Column, DateTime, ForeignKey, Integer, String
 from app.Core.Database import Base
 
 class Sakit(Base):
@@ -15,6 +15,7 @@ class Sakit(Base):
     approved = Column(Boolean, default=None, nullable=True)
     alasan = Column(String, default=None, nullable=True)
     code = Column(String, default=None, nullable=True)
+    created_at = Column(TIMESTAMP)
 
 Sakit.user = relationship('User')
 Sakit.absen = relationship('Absen')
