@@ -45,6 +45,7 @@ async def add_izin(
         }
 
     new_absen = Absen(
+        id=str(uuid.uuid4()),
         user_id=user_id,
         keterangan="keluar_kantor",
         created_at=input_time
@@ -54,6 +55,7 @@ async def add_izin(
     db.refresh(new_absen)
 
     new_izin = Izin(
+        id=str(uuid.uuid4()),
         user_id = user_id,
         absen_id = new_absen.id,
         tanggal_izin = input_time,

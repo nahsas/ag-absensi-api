@@ -97,7 +97,7 @@ def getTimeSetting(date_simulation:Optional[datetime] = None, db:Session = Depen
     now_date = datetime.now(pytz.timezone('Asia/Jakarta')).date()
     now = datetime.now(pytz.timezone('Asia/Jakarta'))
 
-    today_absen = db.query(Absen).where(Absen.user_id == user_id).where(start_day <= Absen.created_at).where(Absen.created_at <= end_day).first()
+    today_absen = db.query(Absen).where(Absen.user_id == user_id).where(Absen.keterangan == 'hadir').where(start_day <= Absen.created_at).where(Absen.created_at <= end_day).first()
     is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == user_id).where(Lembur.start_date <= now_date).where(now_date <= Lembur.end_date).first()
     
     state_pulang = False
@@ -124,9 +124,11 @@ def getTimeSetting(date_simulation:Optional[datetime] = None, db:Session = Depen
         state_pulang = True if today_absen.mulai_lembur and not today_absen.selesai_lembur else False
         label_pulang = "Selesai Lembur"
 
+    is_alpha =  db.query(Absen).filter(Absen.user_id == user_id).where(Absen.keterangan=='tanpa_keterangan').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
+    
     return {
         "pagi":{
-            "state":False if check_libur(db) else True,
+            "state":False if check_libur(db) or is_alpha else True,
             "label":"Masuk"
         },
         "istirahat":{

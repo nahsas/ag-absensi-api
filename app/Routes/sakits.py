@@ -60,6 +60,7 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url:Optional[str] = No
         if not user:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="User tidak ditemukan")
         new_absen = Absen(
+            id=str(uuid.uuid4()),
             user_id=user.id,
             keterangan="izin",
             created_at=input_time,

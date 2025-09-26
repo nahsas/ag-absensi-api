@@ -90,7 +90,7 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
             Absen.user_id == user.id,
         ).scalar() or 0
 
-        absen_pagi =  db.query(Absen).filter(Absen.user_id == user_id, Absen.pagi != None).where(Absen.keterangan=='hadir').first()
+        absen_pagi =  db.query(Absen).filter(Absen.user_id == user_id, Absen.pagi != None).where(Absen.keterangan=='hadir').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
         result = {
             "pagi": None if not absen_pagi else {
                 "id":absen_pagi.id,
@@ -273,14 +273,19 @@ async def absen_masuk(
     start_of_the_day = datetime.fromisoformat(f"{input_time.date()}T00:00:00")
     end_of_the_day = datetime.fromisoformat(f"{input_time.date()}T23:59:59")
 
-    today_absen = db.query(Absen).where(start_of_the_day <= Absen.created_at).where(Absen.created_at <= end_of_the_day).first()
+    today_absen = db.query(Absen).where(Absen.user_id==user_id).where(Absen.keterangan == 'hadir').where(start_of_the_day <= Absen.created_at).where(Absen.created_at <= end_of_the_day).first()
+
+    if db.query(Absen).filter(Absen.user_id == user_id).where(Absen.keterangan=='tanpa_keterangan').where(start_of_the_day <= Absen.created_at).where(Absen.created_at <= end_of_the_day).first():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Tidak ada absen lagi")
 
     if not today_absen and not check_libur(db):
         new_absen = Absen(
+            id=str(uuid.uuid4()),
             user_id=user_id,
             keterangan="Hadir",
             pagi=input_time,
             bukti_pagi=supabase_url,
+            point=calculate_point(user_id, input_time, db),
             created_at=input_time
         )
 
@@ -374,6 +379,7 @@ async def absen_masuk(
     
     if check_libur(db) and is_lembur and not today_absen:
         new_absen = Absen(
+            id=str(uuid.uuid4()),
             user_id=user_id,
             keterangan="Hadir",
             mulai_lembur=input_time,

@@ -147,6 +147,7 @@ async def input_izin(
         bukti_url = f"/absen/absen-image/{filename}"
 
     new_absen = Absen(
+        id=str(uuid.uuid4()),
         user_id=user_id,
         keterangan=keterangan,
         bukti=bukti_url,

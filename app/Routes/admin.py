@@ -105,6 +105,7 @@ def set_lembur(data:CreateDinasLuar,user_id_list: List[str], db:Session = Depend
         raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Tidak punya izin untuk akses endpoint ini') 
 
     new_dinas_luar = DinasLuar(
+        id=str(uuid.uuid4()),
         judul = data.judul,
         deskripsi = data.deskripsi,
         tanggal_mulai = data.tanggal_mulai,
