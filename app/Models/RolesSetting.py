@@ -10,9 +10,6 @@ class RolesSetting(Base):
     id = Column(String,primary_key=True, default=str(uuid.uuid4()))
     roles_id = Column(String, ForeignKey('roles.id'))
     name = Column(String)
-    jam_id = Column(String, ForeignKey('setting_jams.id'))
     operator = Column(String)
     value = Column(Time)
     point = Column(Integer)
-
-    jam = relationship('SettingJam', uselist=False)

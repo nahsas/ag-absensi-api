@@ -46,8 +46,18 @@ async def set_approve(izin_id:str, approve:bool, db:Session = Depends(get_db), u
     if sakit.approved is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Pengajuan izin sudah disetujui atau ditolak sebelumnya")
     sakit.approved = approve
+    
     db.add(sakit)
+    db.refresh(sakit)
     db.commit()
+
+    start_date = datetime.fromisoformat(f"{datetime.fromisoformat(sakit.tanggal)}T00:00:00")
+    end_date = datetime.fromisoformat(f"{datetime.fromisoformat(sakit.tanggal)}23:59:59")
+    absent_to_delete = db.query(Absen).where(Absen.keterangan == 'tanpa_keterangan').where(start_date <= Absen.created_at).where(Absen.created_at <= end_date).all()
+    for absent in absent_to_delete:
+        db.delete(absent)
+        db.commit()
+
     return {"message":"Pengajuan izin berhasil disetujui" if approve else "Pengajuan izin berhasil ditolak"}
 
 @router.post('/add_sakit')
@@ -60,15 +70,13 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url:Optional[str] = No
         new_absen = Absen(
             id=str(uuid.uuid4()),
             user_id=user.id,
-            keterangan="sakit",
-            point=0, # point akan dihitung saat kembali
-            tanggal_absen=input_time,
-            show=True
+            keterangan="izin",
+            created_at=input_time,
         )
         db.add(new_absen)
         db.flush()
         
-        code = create_izin_code(user_id=user.id, db=db) # Membuat kode izin unik
+        code = create_izin_code(user_id=user.id, db=db)
 
         bukti_url = None
         if bukti_kembali and bukti_kembali.filename:
@@ -78,6 +86,7 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url:Optional[str] = No
             with open(file_path, "wb") as f:
                 f.write(await bukti_kembali.read())
             bukti_url = f"/absen/absen-image/{filename}"
+
         new_sakit = Sakit(
             id = str(uuid.uuid4()),
             user_id = user.id,
@@ -86,9 +95,11 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url:Optional[str] = No
             tanggal = input_time,
             alasan = alasan,
             approved = None,
+            
+            created_at = input_time,
             code = code
         )
 
         db.add(new_sakit)
         db.commit()
-        return {"message":"Bukti sakit sudah diajukan"}
+        return {"message":"Bukti izin sudah diajukan"}

@@ -37,14 +37,14 @@ class Izin(Base):
     __tablename__ = 'izins'
 
     id = Column(String, primary_key=True, default=str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey('users.id'))  # Asumsi ada tabel 'users'
-    absen_id = Column(String, ForeignKey('absens.id')) # Asumsi ada tabel 'absens'
-    bukti_kembali = Column(String)
-    alasan = Column(String)
-    jam_kembali = Column(DateTime)
-    keluar_selama = Column(Integer)
-    approved = Column(Boolean,nullable=True)
-    judul = Column(String)
+    user_id = Column(String, ForeignKey('users.id'))
+    absen_id = Column(String, ForeignKey('absens.id'))
+    tanggal_izin = Column(DateTime)
+    bukti_kembali = Column(String, nullable=True, default=None)
+    alasan = Column(String, nullable=True, default=None)
+    jam_kembali = Column(DateTime, nullable=True, default=None)
+    keluar_selama = Column(Integer, nullable=True, default=0)
+    judul = Column(String, nullable=True, default=None)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 

@@ -92,98 +92,58 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @router.get('/time_setting')
 def getTimeSetting(date_simulation:Optional[datetime] = None, db:Session = Depends(get_db), user_id = Depends(get_auth_user)):
-    if not date_simulation:
-        date_simulation = datetime.now().date()
-    is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == user_id).where(Lembur.start_date <= datetime.now(pytz.timezone('Asia/Jakarta')).date()).where(datetime.now(pytz.timezone('Asia/Jakarta')).date() <= Lembur.end_date).first()
+    start_day = datetime.fromisoformat(f'{datetime.now(pytz.timezone("Asia/Jakarta")).date()}T00:00:00')
+    end_day = datetime.fromisoformat(f'{datetime.now(pytz.timezone("Asia/Jakarta")).date()}T23:59:59')
+    now_date = datetime.now(pytz.timezone('Asia/Jakarta')).date()
+    now = datetime.now(pytz.timezone('Asia/Jakarta'))
 
-    query_res = db.query(SettingJam).order_by(SettingJam.jam)
-    jam_absen_pulang_bawah = query_res.where(SettingJam.nama_jam == 'Pulang').first().jam
-    jam_absen_pulang_atas = query_res.where(SettingJam.nama_jam == 'Pulang').first().batas_jam
-    check_already_absen_pulang = db.query(Absen).where(Absen.keterangan == 'Pulang').where(Absen.user_id==user_id).where(datetime.combine(datetime.now(pytz.timezone('Asia/Jakarta')).date(), jam_absen_pulang_bawah) <= Absen.tanggal_absen).where(Absen.tanggal_absen <= datetime.combine(datetime.now(pytz.timezone('Asia/Jakarta')).date(), jam_absen_pulang_atas)).first()
-    absen_mulai_lembur = db.query(Absen).where(Absen.keterangan == "lembur").where(Absen.lembur_start != None).where(Absen.lembur_end == None).first()
-    query_res = query_res.all()
-    res = []
+    today_absen = db.query(Absen).where(Absen.user_id == user_id).where(Absen.keterangan == 'hadir').where(start_day <= Absen.created_at).where(Absen.created_at <= end_day).first()
+    is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == user_id).where(Lembur.start_date <= now_date).where(now_date <= Lembur.end_date).first()
+    
+    state_pulang = False
+    label_pulang = "Pulang" if now.weekday() != 6 else "Mulai Lembur"
 
+    if today_absen and now.weekday() != 6:
+        if (is_lembur and today_absen.mulai_lembur and not today_absen.selesai_lembur):
+            state_pulang = True
+            label_pulang = "Selesai Lembur"
 
-    if check_libur(db) and not is_lembur:
-        for data in query_res:
-            jam = time.fromisoformat(str(data.jam)).hour
-            menit = time.fromisoformat(str(data.jam)).minute
-            jam_akhir = time.fromisoformat(str(data.batas_jam)).hour
-            menit_akhir = time.fromisoformat(str(data.batas_jam)).minute
+        if (is_lembur and now.weekday() == 5 and now.hour > 12 and today_absen.pulang and not today_absen.mulai_lembur) or (is_lembur and now.weekday() < 5 and now.hour > 17 and today_absen.pulang and not today_absen.mulai_lembur):
+            state_pulang = True
+            label_pulang = "Mulai Lembur"
 
-            res.append({
-                "nama":data.nama_jam,
-                "jam_awal":{
-                    "jam":0,
-                    "menit":0
-                },
-                "jam_akhir":{
-                    "jam":0,
-                    "menit":0
-                }
-            })
-
-        return res
-
-    if (check_already_absen_pulang and is_lembur and not absen_mulai_lembur) or (check_libur(db) and is_lembur and not absen_mulai_lembur):
-        for data in query_res:
-            jam = time.fromisoformat(str(data.jam)).hour
-            menit = time.fromisoformat(str(data.jam)).minute
-
-            res.append({
-                "nama":"Mulai Lembur" if data.nama_jam == "Pulang" else data.nama_jam,
-                "jam_awal":{
-                    "jam":0,
-                    "menit":0
-                },
-                "jam_akhir":{
-                    "jam":23,
-                    "menit":59
-                }
-            })
+        if (today_absen.kembali_kerja and not today_absen.pulang) or (today_absen.pagi and now.weekday() == 5):
+            state_pulang = True
+            label_pulang = "Pulang"
+    else:    
+        if (is_lembur and check_libur(db) and today_absen == None):
+            state_pulang = True
+            label_pulang = "Mulai Lembur"
         
-        return res
+        if (is_lembur and check_libur(db) and today_absen != None):
+            state_pulang = True if today_absen.mulai_lembur and not today_absen.selesai_lembur else False
+            label_pulang = "Selesai Lembur"
 
-    if (check_already_absen_pulang and is_lembur and absen_mulai_lembur) or (check_libur(db) and is_lembur and absen_mulai_lembur):
-        for data in query_res:
-            jam = time.fromisoformat(str(data.jam)).hour
-            menit = time.fromisoformat(str(data.jam)).minute
-
-            res.append({
-                "nama":"Selesai Lembur" if data.nama_jam == "Pulang" else data.nama_jam,
-                "jam_awal":{
-                    "jam":0,
-                    "menit":0
-                },
-                "jam_akhir":{
-                    "jam":23,
-                    "menit":59
-                }
-            })
-        
-        return res
-
-    for data in query_res:
-        jam = time.fromisoformat(str(data.jam)).hour
-        menit = time.fromisoformat(str(data.jam)).minute
-        jam_akhir = time.fromisoformat(str(data.batas_jam)).hour
-        menit_akhir = time.fromisoformat(str(data.batas_jam)).minute
-
-        res.append({
-            "nama":data.nama_jam,
-            "jam_awal":{
-                "jam":jam,
-                "menit":menit
-            },
-            "jam_akhir":{
-                "jam":jam_akhir,
-                "menit":menit_akhir
-            }
-        })
-
-    return res
-
+    is_alpha =  db.query(Absen).filter(Absen.user_id == user_id).where(Absen.keterangan=='tanpa_keterangan').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
+    
+    return {
+        "pagi":{
+            "state":False if check_libur(db) or is_alpha else True,
+            "label":"Masuk"
+        },
+        "istirahat":{
+            "state":True if (today_absen and today_absen.pagi and not today_absen.istirahat and now.weekday() != 5 and now.weekday() != 6) else False,
+            "label":"Istirahat"
+        },
+        "kembali_bekerja":{
+            "state":True if (today_absen and today_absen.istirahat and not today_absen.kembali_kerja and now.weekday() != 5 and now.weekday() != 6) else False,
+            "label":"Kembali Bekerja"
+        },
+        "pulang":{
+            "state":state_pulang,
+            "label":label_pulang
+        }
+    }
 
 @router.get('/get_setting')
 def getSetting(db: Session = Depends(get_db)):
@@ -200,10 +160,10 @@ def getStatistic(db: Session = Depends(get_db), user = Depends(get_auth_user)):
     res = []
 
     datas = {
-        "absen_plus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
-        "absen_minus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
-        "absen_plus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point > 0).where(Absen.tanggal_absen < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()]),
-        "absen_minus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.tanggal_absen < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()])
+        "absen_plus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point >= 0).where(Absen.created_at.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
+        "absen_minus_this_month": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.created_at.between(datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1), datetime.now(pytz.timezone('Asia/Jakarta')))).all()]),
+        "absen_plus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point >= 0).where(Absen.created_at < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()]),
+        "absen_minus_month_before": sum([item.point for item in db.query(Absen).where(Absen.user_id == user.id).where(Absen.point < 0).where(Absen.created_at < datetime.now(pytz.timezone('Asia/Jakarta')).replace(day=1)).all()])
     }
 
     res = {
