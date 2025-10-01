@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import os
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID, uuid4
 from fastapi import Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -53,6 +53,7 @@ def get_users(data: user.LoginUser, db: Session = Depends(get_db)):
         "nip": res.nip,
         "role": res.role.name,
         "name": res.name,
+        "photo": res.photo_profile,
         "posisi_perusahaan": res.position,
         "isFirstLogin": res.isFirstLogin,
         "is_lembur":True if is_lembur else False,
@@ -87,22 +88,18 @@ def updatePassword(data: user.NewPasswordUser, db: Session = Depends(get_db), us
 
     return result
 
-# @router.put('/update/photo_profile')
-# async def update_photo_profile(photo_profile: UploadFile, db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
-#     res = db.query(User).where(User.id == user_id).first()
-#     if not res:
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Akun tidak ada")
-#     if photo_profile and photo_profile.filename:
-#         ext = os.path.splitext(photo_profile.filename)[1]
-#         filename = f"{uuid4().hex}{ext}"
-#         file_path = os.path.join(UPLOAD_DIR, filename)
-#         with open(file_path, "wb") as f:
-#             f.write(await photo_profile.read())
-#         profile_url = f"/absen/photo_profile/{filename}"
-#     res.photo_profile = profile_url
-#     db.commit()
-#     db.refresh(res)
-#     return res
+class input_data(BaseModel):
+    supabase_url : Union[str,None]
+    
+@router.put('/update/photo')
+async def update_photo_profile(data: input_data, db: Session = Depends(get_db), user_id: str = Depends(get_auth_user)):
+    res = db.query(User).where(User.id == user_id).first()
+    if not res:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Akun tidak ada")
+    res.photo_profile = data.supabase_url
+    db.commit()
+    db.refresh(res)
+    return {"message":"Foto berhasil di masukan ke database"}
 
 # @router.get('/user/photo_profile/{image_filename}')
 # def get_photo_profile(filename: str):

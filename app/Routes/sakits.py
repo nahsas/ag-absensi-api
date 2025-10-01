@@ -48,7 +48,15 @@ async def set_approve(izin_id:str, approve:bool, db:Session = Depends(get_db), u
     sakit.approved = approve
     
     db.add(sakit)
+    db.refresh(sakit)
     db.commit()
+
+    start_date = datetime.fromisoformat(f"{datetime.fromisoformat(sakit.tanggal)}T00:00:00")
+    end_date = datetime.fromisoformat(f"{datetime.fromisoformat(sakit.tanggal)}23:59:59")
+    absent_to_delete = db.query(Absen).where(Absen.keterangan == 'tanpa_keterangan').where(start_date <= Absen.created_at).where(Absen.created_at <= end_date).all()
+    for absent in absent_to_delete:
+        db.delete(absent)
+        db.commit()
 
     return {"message":"Pengajuan izin berhasil disetujui" if approve else "Pengajuan izin berhasil ditolak"}
 
@@ -94,4 +102,4 @@ async def add_sakit(alasan:Optional[str] = None, supabase_url:Optional[str] = No
 
         db.add(new_sakit)
         db.commit()
-        return {"message":"Bukti sakit sudah diajukan"}
+        return {"message":"Bukti izin sudah diajukan"}

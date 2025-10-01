@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 from app.Core.Database import get_db
 from app.Core.Essential import add_absen, calculate_point, check_libur, get_auth_user
+from app.Core.GeminiService import compare_image
 from app.Models.Absen import Absen
 from app.Models.Izin import Izin
 from app.Models.RolesSetting import RolesSetting
@@ -90,7 +91,9 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
             Absen.user_id == user.id,
         ).scalar() or 0
 
-        absen_pagi =  db.query(Absen).filter(Absen.user_id == user_id, Absen.pagi != None).where(Absen.keterangan=='hadir').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
+        absen_pagi = db.query(Absen).filter(Absen.user_id == user_id, Absen.pagi != None).where(Absen.keterangan=='hadir').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
+        absen_pualng = db.query(Absen).filter(Absen.user_id == user_id, Absen.pulang != None).where(Absen.keterangan=='hadir').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
+        is_absent = db.query(Absen).filter(Absen.user_id == user_id).where(Absen.keterangan=='tanpa_keterangan').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
         result = {
             "pagi": None if not absen_pagi else {
                 "id":absen_pagi.id,
@@ -104,9 +107,12 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
         if izin_active :
             is_izin = True
 
+        now = datetime.now(pytz.timezone('Asia/Jakarta'))
         main_button_text = "Anda Belum absen pagi"
         if result['pagi']: main_button_text = "Anda sudah absen pagi"
-        if is_lembur: main_button_text = "Anda sedang lembur"
+        if (is_lembur and result['pagi'] and not now.weekday() != 5) or (is_lembur and now.weekday() == 5): main_button_text = "Hari ini anda di tugaskan lembur"
+        if is_absent: main_button_text = "Hari ini anda di anggap alpha"
+        if absen_pualng: main_button_text = f"Terimakasih telah bekerja selama ({absen_pualng.lama_bekerja})"
         if is_dinas_luar: main_button_text = "Anda sedang dalam dinas luar"
         if is_izin: main_button_text = "Sedang ada izin yang berjalan"
         if check_libur(db): main_button_text = "Tidak ada absen hari ini, sedang libur"
@@ -152,6 +158,16 @@ def get_absens(
 
     res = []
     for data in datas:
+        if data.keterangan == 'tanpa_keterangan':
+            res.append({
+                "id": data.id,
+                "tipe": 'tanpa_keterangan',
+                "keterangan": "tanpa_keterangan",
+                "bukti": None,
+                "tanggal_absen": data.created_at,
+                "point":0,
+            })
+
         if data.keterangan == 'keluar_kantor':
             izin = db.query(Izin).where(Izin.absen_id == data.id).first()
 
@@ -185,7 +201,7 @@ def get_absens(
                 "keterangan": "pagi",
                 "bukti": data.bukti_pagi,
                 "tanggal_absen": data.pagi,
-                "point":0,
+                "point":data.point,
             })
         if data.istirahat:
             res.append({
@@ -257,7 +273,7 @@ def get_absen_image(filename: str):
     summary="Melakukan absensi",
     description="Endpoint untuk melakukan absensi (masuk, istirahat, kembali, atau pulang) sesuai dengan waktu saat ini. Bukti foto dapat diunggah."
 )
-async def absen_masuk(
+def absen_masuk(
     input_time: Optional[datetime] = None, 
     supabase_url: Optional[str] = None, 
     bukti: UploadFile = File(None), 
@@ -272,20 +288,30 @@ async def absen_masuk(
     input_time = datetime.now(pytz.timezone('Asia/Jakarta'))
     start_of_the_day = datetime.fromisoformat(f"{input_time.date()}T00:00:00")
     end_of_the_day = datetime.fromisoformat(f"{input_time.date()}T23:59:59")
+    check_izin_active = db.query(Izin).where(Izin.user_id == user_id).where(Izin.jam_kembali == None).first()
 
     today_absen = db.query(Absen).where(Absen.user_id==user_id).where(Absen.keterangan == 'hadir').where(start_of_the_day <= Absen.created_at).where(Absen.created_at <= end_of_the_day).first()
+    yesterday_absen = db.query(Absen).where(Absen.user_id==user_id).where(Absen.keterangan == 'hadir').where((start_of_the_day - timedelta(days=1)) <= Absen.created_at).where(Absen.created_at <= start_of_the_day).first()
+
+    if check_izin_active:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Anda sedang izin, mohon kembali ke kantor terlebih dahulu")        
 
     if db.query(Absen).filter(Absen.user_id == user_id).where(Absen.keterangan=='tanpa_keterangan').where(start_of_the_day <= Absen.created_at).where(Absen.created_at <= end_of_the_day).first():
         raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Tidak ada absen lagi")
 
     if not today_absen and not check_libur(db):
+        user = db.query(User).where(User.id == user_id).first()
+        compared_image = compare_image(supabase_url, user.photo_profile)
+        if not compared_image['status']:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Wajah tidak sama dengan yang terdata di database")
+
         new_absen = Absen(
             id=str(uuid.uuid4()),
             user_id=user_id,
             keterangan="Hadir",
             pagi=input_time,
             bukti_pagi=supabase_url,
-            point=calculate_point(user_id, input_time, db),
+            point=calculate_point(user_id, input_time.time(), db),
             created_at=input_time
         )
 
@@ -299,7 +325,7 @@ async def absen_masuk(
         }
     
     if today_absen and not check_libur(db):
-        if today_absen.istirahat == None :        
+        if today_absen.istirahat == None and input_time.weekday() != 5:        
             today_absen.istirahat = input_time
             today_absen.bukti_istirahat = supabase_url
             today_absen.updated_at = input_time
@@ -312,7 +338,7 @@ async def absen_masuk(
                 "point_didapat": 0
             }
 
-        if today_absen.kembali_kerja == None :        
+        if today_absen.kembali_kerja == None and input_time.weekday() != 5:
             today_absen.kembali_kerja = input_time
             today_absen.bukti_kembali_kerja = supabase_url
             today_absen.updated_at = input_time
@@ -322,19 +348,6 @@ async def absen_masuk(
             return {
                 "message": f"Absensi kembali kerja berhasil!",
                 "tipe_absen": "kembali kerja",
-                "point_didapat": 0
-            }
-
-        if today_absen.pulang == None :        
-            today_absen.pulang = input_time
-            today_absen.bukti_pulang = supabase_url
-            today_absen.updated_at = input_time
-
-            db.commit()
-
-            return {
-                "message": f"Absensi pulang berhasil!",
-                "tipe_absen": "Pulang",
                 "point_didapat": 0
             }
 

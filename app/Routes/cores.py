@@ -101,28 +101,28 @@ def getTimeSetting(date_simulation:Optional[datetime] = None, db:Session = Depen
     is_lembur = db.query(UserLembur).join(Lembur).options(joinedload(UserLembur.lembur)).where(UserLembur.user_id == user_id).where(Lembur.start_date <= now_date).where(now_date <= Lembur.end_date).first()
     
     state_pulang = False
-    label_pulang = "Pulang" if not is_lembur else "Mulai Lembur"
+    label_pulang = "Pulang" if now.weekday() != 6 else "Mulai Lembur"
 
-    if today_absen:
-        if today_absen.kembali_kerja and not today_absen.pulang :
+    if today_absen and now.weekday() != 6:
+        if (is_lembur and today_absen.mulai_lembur and not today_absen.selesai_lembur):
             state_pulang = True
-            label_pulang = "Pulang"
-        
+            label_pulang = "Selesai Lembur"
+
         if (is_lembur and now.weekday() == 5 and now.hour > 12 and today_absen.pulang and not today_absen.mulai_lembur) or (is_lembur and now.weekday() < 5 and now.hour > 17 and today_absen.pulang and not today_absen.mulai_lembur):
             state_pulang = True
             label_pulang = "Mulai Lembur"
 
-        if (is_lembur and today_absen.mulai_lembur and not today_absen.selesai_lembur):
+        if (today_absen.kembali_kerja and not today_absen.pulang) or (today_absen.pagi and now.weekday() == 5):
             state_pulang = True
+            label_pulang = "Pulang"
+    else:    
+        if (is_lembur and check_libur(db) and today_absen == None):
+            state_pulang = True
+            label_pulang = "Mulai Lembur"
+        
+        if (is_lembur and check_libur(db) and today_absen != None):
+            state_pulang = True if today_absen.mulai_lembur and not today_absen.selesai_lembur else False
             label_pulang = "Selesai Lembur"
-    
-    if (is_lembur and check_libur(db) and today_absen == None):
-        state_pulang = True
-        label_pulang = "Mulai Lembur"
-    
-    if (is_lembur and check_libur(db) and today_absen != None):
-        state_pulang = True if today_absen.mulai_lembur and not today_absen.selesai_lembur else False
-        label_pulang = "Selesai Lembur"
 
     is_alpha =  db.query(Absen).filter(Absen.user_id == user_id).where(Absen.keterangan=='tanpa_keterangan').where(datetime.fromisoformat(f"{now_date}T00:00:00") <= Absen.created_at).where(Absen.created_at <= datetime.fromisoformat(f"{now_date}T23:59:59")).first()
     
@@ -132,11 +132,11 @@ def getTimeSetting(date_simulation:Optional[datetime] = None, db:Session = Depen
             "label":"Masuk"
         },
         "istirahat":{
-            "state":True if today_absen and today_absen.pagi and not today_absen.istirahat else False,
+            "state":True if (today_absen and today_absen.pagi and not today_absen.istirahat and now.weekday() != 5 and now.weekday() != 6) else False,
             "label":"Istirahat"
         },
         "kembali_bekerja":{
-            "state":True if today_absen and today_absen.istirahat and not today_absen.kembali_kerja else False,
+            "state":True if (today_absen and today_absen.istirahat and not today_absen.kembali_kerja and now.weekday() != 5 and now.weekday() != 6) else False,
             "label":"Kembali Bekerja"
         },
         "pulang":{
