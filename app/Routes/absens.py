@@ -112,7 +112,7 @@ def get_status(db: Session = Depends(get_db), user_id = Depends(get_auth_user)):
         if result['pagi']: main_button_text = "Anda sudah absen pagi"
         if (is_lembur and result['pagi'] and not now.weekday() != 5) or (is_lembur and now.weekday() == 5): main_button_text = "Hari ini anda di tugaskan lembur"
         if is_absent: main_button_text = "Hari ini anda di anggap alpha"
-        if absen_pualng: main_button_text = f"Terimakasih telah bekerja selama ({absen_pualng.lama_bekerja})"
+        if absen_pualng: main_button_text = f"Terimakasih telah bekerja"
         if is_dinas_luar: main_button_text = "Anda sedang dalam dinas luar"
         if is_izin: main_button_text = "Sedang ada izin yang berjalan"
         if check_libur(db): main_button_text = "Tidak ada absen hari ini, sedang libur"
@@ -161,7 +161,7 @@ def get_absens(
         if data.keterangan == 'tanpa_keterangan':
             res.append({
                 "id": data.id,
-                "tipe": 'tanpa_keterangan',
+                "tipe": 'Alpha',
                 "keterangan": "tanpa_keterangan",
                 "bukti": None,
                 "tanggal_absen": data.created_at,
@@ -192,7 +192,6 @@ def get_absens(
                 "tanggal_absen": data.created_at,
                 "point":0,
             })
-
 
         if data.pagi:
             res.append({
@@ -301,6 +300,8 @@ def absen_masuk(
 
     if not today_absen and not check_libur(db):
         user = db.query(User).where(User.id == user_id).first()
+        if not user.photo_profile:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Kamu belum menambahkan foto profil, Silahkan lengkapi dulu di menu Pengaturan")
         compared_image = compare_image(supabase_url, user.photo_profile)
         if not compared_image['status']:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Wajah tidak sama dengan yang terdata di database")

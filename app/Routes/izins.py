@@ -8,6 +8,7 @@ import pytz
 from sqlalchemy.orm import Session, joinedload
 from app.Core.Database import get_db
 from app.Core.Essential import check_libur, get_auth_user
+from app.Core.GeminiService import compare_image
 from app.Models.Absen import Absen
 from app.Models.SettingJam import SettingJam
 from app.Models.User import User
@@ -37,9 +38,21 @@ async def add_izin(
             detail="Format datetime tidak valid. Gunakan format ISO 8601 (contoh: '2025-08-23T10:00:00')."
         )
     
+    input_time = datetime.now(pytz.timezone('Asia/Jakarta'))
+    start_of_the_day = datetime.fromisoformat(f"{input_time.date()}T00:00:00")
+    end_of_the_day = datetime.fromisoformat(f"{input_time.date()}T23:59:59")
+
+    today_absen = db.query(Absen).where(Absen.user_id==user_id).where(Absen.keterangan == 'hadir').where(start_of_the_day <= Absen.created_at).where(Absen.created_at <= end_of_the_day).first()
+
     check_active_izin = db.query(Izin).where(Izin.user_id == user_id).where(Izin.jam_kembali == None).first()
 
+    if not today_absen:
+        return {
+            "message":"Diharapkan untuk melakukan absen pagi terlebih dahulu"
+        }
+
     if check_active_izin:
+        
         return {
             "message":"Kamu sedang dalam status keluar kantor."
         }
@@ -82,6 +95,13 @@ async def back_to_office(
 ):
     if check_libur(db):
         return {"Tidak ada keluar kantor hari ini dikarenakan sedang libur"}
+
+    user = db.query(User).where(User.id == user_id_str).first()
+    if not user.photo_profile:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Kamu belum menambahkan foto profil, Silahkan lengkapi dulu di menu Pengaturan")
+    compared_image = compare_image(supabase_url, user.photo_profile)
+    if not compared_image['status']:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,detail="Wajah tidak sama dengan yang terdata di database")
 
     izin_active = db.query(Izin).filter(
         Izin.user_id == user_id_str,

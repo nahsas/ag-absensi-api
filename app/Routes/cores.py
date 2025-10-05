@@ -116,7 +116,7 @@ def getTimeSetting(date_simulation:Optional[datetime] = None, db:Session = Depen
             state_pulang = True
             label_pulang = "Pulang"
     else:    
-        if (is_lembur and check_libur(db) and today_absen == None):
+        if (is_lembur and check_libur(db) and today_absen == None and now.hour >= 12):
             state_pulang = True
             label_pulang = "Mulai Lembur"
         

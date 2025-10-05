@@ -47,15 +47,16 @@ async def set_approve(izin_id:str, approve:bool, db:Session = Depends(get_db), u
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Pengajuan izin sudah disetujui atau ditolak sebelumnya")
     sakit.approved = approve
     
-    db.add(sakit)
-    db.refresh(sakit)
     db.commit()
+    db.refresh(sakit)
 
-    start_date = datetime.fromisoformat(f"{datetime.fromisoformat(sakit.tanggal)}T00:00:00")
-    end_date = datetime.fromisoformat(f"{datetime.fromisoformat(sakit.tanggal)}23:59:59")
-    absent_to_delete = db.query(Absen).where(Absen.keterangan == 'tanpa_keterangan').where(start_date <= Absen.created_at).where(Absen.created_at <= end_date).all()
-    for absent in absent_to_delete:
-        db.delete(absent)
+    start_date = datetime.replace(sakit.tanggal, hour=0, minute=0, second=0)
+    end_date = datetime.replace(sakit.tanggal, hour=23, minute=59, second=59)
+    print(start_date)
+    print(end_date)
+    absent_to_delete = db.query(Absen).where(Absen.keterangan == 'tanpa_keterangan').where(start_date <= Absen.created_at).where(Absen.created_at <= end_date).first()
+    if absent_to_delete and approve:
+        db.delete(absent_to_delete)
         db.commit()
 
     return {"message":"Pengajuan izin berhasil disetujui" if approve else "Pengajuan izin berhasil ditolak"}
